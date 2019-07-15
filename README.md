@@ -1,2 +1,1 @@
-# ieee-fraud
-Kaggle Competition IEEE Fraud Detection
+# Kaggle Competition IEEE Fraud Detection
