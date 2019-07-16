@@ -1,0 +1,170 @@
+import os
+import numpy as np
+import pandas as pd
+from google.cloud import bigquery
+from google.cloud.exceptions import NotFound
+from logging import StreamHandler, DEBUG, Formatter, FileHandler, getLogger
+
+
+def mkdir_func(path):
+    try:
+        os.stat(path)
+    except:
+        os.mkdir(path)
+
+def logger_func(OUTPUT_DIR='../output'):
+    logger = getLogger(__name__)
+    log_fmt = Formatter('%(asctime)s %(name)s %(lineno)d [%(levelname)s]\
+    [%(funcName)s] %(message)s ')
+    handler = StreamHandler()
+    handler.setLevel('INFO')
+    handler.setFormatter(log_fmt)
+    logger.addHandler(handler)
+
+    mkdir_func(OUTPUT_DIR)
+    handler = FileHandler('{}/py_train.py.log'.format(OUTPUT_DIR), 'a')
+    handler.setLevel(DEBUG)
+    handler.setFormatter(log_fmt)
+    logger.setLevel(DEBUG)
+    logger.addHandler(handler)
+
+    logger.info('start')
+
+    return logger
+
+class BigQuery:
+
+    def __init__(self, credentials, dataset_name, is_create=False, OUTPUT_DIR='../output'):
+        self.logger = logger_func(OUTPUT_DIR=OUTPUT_DIR)
+        # self.client = bigquery.Client()
+        self.client = bigquery.Client.from_service_account_json(credentials)
+        self.dataset_name = dataset_name
+        if not is_create:
+            self._set_dataset()
+        self.table_dict = {}
+
+    def _set_dataset(self):
+        dataset_ref = self.client.dataset(self.dataset_name)
+        self.dataset = self.client.get_dataset(dataset_ref)
+        self.logger.info('Setup Dataset {}.'.format(self.dataset.dataset_id))
+
+    def set_table(self, table_name):
+        table_ref = self.dataset.table(table_name)
+        self.table_dict[table_name] = self.client.get_table(table_ref)
+        self.logger.info('Setup Table {}.'.format(self.table_dict[table_name].table_id))
+
+    def create_dataset(self):
+        dataset_ref = self.client.dataset(self.dataset_name)
+        dataset = bigquery.Dataset(dataset_ref)
+        self.dataset = self.client.create_dataset(dataset)
+
+        self.logger.info('Dataset {} created.'.format(self.dataset.dataset_id))
+
+    def create_table(self, table_name, schema):
+
+        table_ref = self.dataset.table(table_name)
+        table = bigquery.Table(table_ref, schema=schema)
+        self.table_dict[table_name] = self.client.create_table(table)
+
+        self.logger.info('Table {} created.'.format(self.table_dict[table_name].table_id))
+
+    def create_schema(self, column_names, column_types, column_modes):
+        schema = []
+        for col_name, col_type, col_mode in zip(column_names, column_types, column_modes):
+            schema.append(bigquery.SchemaField(col_name, col_type, mode=col_mode))
+        return schema
+
+    def insert_rows(self, table_name, insert_rows):
+        res = self.client.insert_rows(self.table_dict[table_name], insert_rows)
+        if res:
+            self.logger.info("Insert Error!!: {}".format(res))
+
+    def del_table(self, table_name):
+
+        dataset_ref = self.client.dataset(self.dataset_name)
+        table_ref = self.dataset.table(table_name)
+        res = self.client.delete_table(table_ref)
+        self.logger.info("del table: {} | Res: {}".format(table_ref, res))
+
+    def del_dataset_all(self):
+
+        dataset_ref = self.client.dataset(self.dataset_name)
+        table_ref_list = list(self.client.list_tables(dataset_ref))
+
+        for table_ref in table_ref_list:
+            self.client.delete_table(table_ref)
+            self.logger.info("del table: {}".format(table_ref))
+        self.client.delete_dataset(dataset_ref)
+        self.logger.info("del dataset: {}".format(dataset_ref))
+
+    def insert_from_gcs(self, table_name, bucket_name, blob_name, source_format=bigquery.SourceFormat.CSV, skip_leading_rows=1):
+
+        table_ref = self.dataset.table(table_name)
+
+        self.gcs_url = "gs://{}/{}".format(bucket_name, blob_name)
+
+        job_id_prefix = 'go_job'
+        job_config = bigquery.LoadJobConfig()
+        job_config.skip_leading_rows = skip_leading_rows
+        job_config.source_format = source_format
+
+        load_job = self.client.load_table_from_uri(
+            self.gcs_url,
+            table_ref,
+            job_config=job_config,
+            job_id_prefix=job_id_prefix
+        )
+
+        self.logger.info("Insert to BigQuery from GCS Start! {} ".format(self.gcs_url))
+        self.logger.info(load_job.state)
+        self.logger.info(load_job.job_type)
+        assert load_job.state == 'RUNNING'
+        assert load_job.job_type == 'load'
+
+        load_job.result()  # Waits for table load to complete
+
+        self.logger.info(load_job.state)
+        self.logger.info(load_job.job_id)
+        assert load_job.state == 'DONE'
+        assert load_job.job_id.startswith(job_id_prefix)
+
+
+    def get_query_result(self, query):
+        query_job = self.client.query(query)
+        row_list = []
+        for row in query_job:
+            row_list.append([*list(row)])
+
+        if len(row_list) == 0:
+            return pd.DataFrame()
+
+        result = pd.DataFrame(row_list, columns=list(row.keys()))
+        result.reset_index(drop=True, inplace=True)
+        return result
+
+
+    def del_rows_query(self, query):
+        """
+        Sample Query:
+        query = (
+            f'''
+            DELETE FROM {dataset_name}.{table_name}
+            WHERE {column_name} in ('{delete_name}')
+            ''')
+       """
+
+        query_job = self.client.query(query)
+        print("Done! {query_job}")
+
+
+    def create_new_field(self, table_name, new_column_name, new_column_type):
+        table_ref = self.dataset.table(table_name)
+        table = self.client.get_table(table_ref)
+        original_schema = table.schema
+        new_schema = original_schema[:]  # creates a copy of the schema
+        new_schema.append(bigquery.SchemaField(new_column_name, new_column_type, "NULLABLE"))
+
+        table.schema = new_schema
+        table = self.client.update_table(table, ["schema"])  # API request
+
+        assert len(table.schema) == len(original_schema) + 1 == len(new_schema)
