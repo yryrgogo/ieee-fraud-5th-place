@@ -1,4 +1,5 @@
 import os
+from time import sleep
 import numpy as np
 import pandas as pd
 from google.cloud import bigquery
@@ -32,16 +33,29 @@ def logger_func(OUTPUT_DIR='../output'):
 
     return logger
 
+
 class BigQuery:
 
-    def __init__(self, credentials, dataset_name, is_create=False, OUTPUT_DIR='../output'):
-        self.logger = logger_func(OUTPUT_DIR=OUTPUT_DIR)
+    def __init__(self, dataset_name='', is_create=False, OUTPUT_DIR='../output'):
+        try:
+            self.logger
+        except AttributeError:
+            self.logger = logger_func(OUTPUT_DIR=OUTPUT_DIR)
+            
+        # Config
+        gcp_config_path = f'{HOME}/privacy/gcp.yaml'
+        with open(gcp_config_path, 'r') as f:
+            gcp_config = yaml.load(f)
+        credentials  =  HOME + '/privacy/' + gcp_config['gcp_credentials']
+            
         # self.client = bigquery.Client()
         self.client = bigquery.Client.from_service_account_json(credentials)
-        self.dataset_name = dataset_name
+        self.table_dict = {}
+        
+        if dataset_name:
+            self.dataset_name = dataset_name
         if not is_create:
             self._set_dataset()
-        self.table_dict = {}
 
     def _set_dataset(self):
         dataset_ref = self.client.dataset(self.dataset_name)
@@ -115,17 +129,12 @@ class BigQuery:
             job_id_prefix=job_id_prefix
         )
 
-        self.logger.info("Insert to BigQuery from GCS Start! {} ".format(self.gcs_url))
-        self.logger.info(load_job.state)
-        self.logger.info(load_job.job_type)
-        assert load_job.state == 'RUNNING'
-        assert load_job.job_type == 'load'
+#         assert load_job.state == 'RUNNING'
+#         assert load_job.job_type == 'load'
 
         load_job.result()  # Waits for table load to complete
 
-        self.logger.info(load_job.state)
-        self.logger.info(load_job.job_id)
-        assert load_job.state == 'DONE'
+#         assert load_job.state == 'DONE'
         assert load_job.job_id.startswith(job_id_prefix)
 
 
@@ -168,3 +177,15 @@ class BigQuery:
         table = self.client.update_table(table, ["schema"])  # API request
 
         assert len(table.schema) == len(original_schema) + 1 == len(new_schema)
+
+    
+    def get_list_table(self):
+        all_tables = self.client.list_tables(self.dataset)
+        all_tables = [table.table_id for table in all_tables]
+        return all_tables
+    
+    
+    def multi_del_tables(self, del_table_names, del_startswith):
+        for del_table_name in del_table_names:
+            if del_table_name.startswith(del_startswith):
+                self.client.del_table(del_table_name)

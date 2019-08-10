@@ -263,7 +263,7 @@ def Classifier(
     if not get_model:
         estimator = None
         
-    return score, oof_pred, test_pred, feim, estimator, params
+    return score, oof_pred, test_pred, feim, estimator
 
 
 def get_kfold(train, Y, fold_type='kfold', fold_n=5, seed=1208, shuffle=True):
