@@ -327,6 +327,7 @@ def mkdir_func(path):
     except:
         os.mkdir(path)
 
+" 機械学習でよく使う系 "
 def logger_func():
     logger = getLogger(__name__)
     log_fmt = Formatter('%(asctime)s %(name)s %(lineno)d [%(levelname)s]\
@@ -376,11 +377,12 @@ def get_filename(path, delimiter='gz'):
     filename = re.search(rf'/([^/.]*).{delimiter}', path).group(1)
     return filename
 
-def parallel_load_data(path_list, delimiter=False, n_cpu=multiprocessing.cpu_count()):
-    p = Pool(n_cpu)
+def parallel_load_data(path_list, feature_names, n_jobs=multiprocessing.cpu_count()):
+    p = Pool(n_jobs)
     p_list = p.map(load_file, path_list)
     p.close
-    return p_list
+    result = pd.DataFrame(p_list, index=feature_names).T
+    return result
 
 def load_file_wrapper(args):
     return load_file(*args)
@@ -395,7 +397,6 @@ def parallel_process(func, arg_list, cpu_cnt=multiprocessing.cpu_count()):
     return callback
 
 
-" 機械学習でよく使う系 "
 def row_number(df, level):
     '''
     Explain:
