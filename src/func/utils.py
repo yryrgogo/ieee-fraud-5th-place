@@ -354,10 +354,10 @@ def load_file(path, delimiter='gz'):
         return pd.read_csv(path)
     filename = get_filename(path=path, delimiter=delimiter)
 
-    if filename.count('train_'):
-        filename = filename[6:]
-    elif filename.count('test_'):
-        filename = filename[5:]
+    if filename.count('_train'):
+        filename = re.sub('_train', '', filename)
+    elif filename.count('_test'):
+        filename = re.sub('_test', '', filename)
 
     if path[-3:]=='npy':
         tmp = pd.Series(np.load(path), name=filename)
@@ -377,11 +377,11 @@ def get_filename(path, delimiter='gz'):
     filename = re.search(rf'/([^/.]*).{delimiter}', path).group(1)
     return filename
 
-def parallel_load_data(path_list, feature_names, n_jobs=multiprocessing.cpu_count()):
+def parallel_load_data(path_list, n_jobs=multiprocessing.cpu_count()):
     p = Pool(n_jobs)
     p_list = p.map(load_file, path_list)
     p.close
-    result = pd.DataFrame(p_list, index=feature_names).T
+    result = pd.concat(p_list, axis=1)
     return result
 
 def load_file_wrapper(args):
