@@ -7,21 +7,19 @@ from tqdm import tqdm
 import sys
 import os
 HOME = os.path.expanduser('~')
-sys.path.append(f"{HOME}/kaggle/data_analysis/library/")
-from parallel_utils import parallel_process
-from calculate_utils import round_size
+from func.utils import parallel_process, round_size
 import concurrent.futures
 
 class Xray_Cal:
 
-    def __init__(self, logger, ignore_list=[]):
-        self.logger = logger
+    def __init__(self, ignore_list=[], is_viz=False):
         self.ignore_list = ignore_list
         self.df_xray=[]
         self.xray_list=[]
         self.point_dict = {}
         self.N_dict = {}
         self.fold_num = None
+        self.is_viz = is_viz
 
     def parallel_xray_calculation(self, args):
         col = args[0]
@@ -32,10 +30,11 @@ class Xray_Cal:
         pred = self.model.predict(dataset)
         p_avg = np.mean(pred)
 
-#          self.logger.info(f'''
-#  #========================================================================
-#  # FOLD{self.fold_num} CALCULATION... COLUMN: {col} | VALUE: {val} | X-RAY: {p_avg}
-#  #========================================================================''')
+        if self.is_viz:
+            print(f'''
+#========================================================================
+# FOLD{self.fold_num} CALCULATION... COLUMN: {col} | VALUE: {val} | X-RAY: {p_avg}
+#========================================================================''')
         del dataset
         gc.collect()
         return {'feature':col,
@@ -54,10 +53,11 @@ class Xray_Cal:
         gc.collect()
         p_avg = np.mean(pred)
 
-#          self.logger.info(f'''
-#  #========================================================================
-#  # CALCULATION PROGRESS... COLUMN: {col} | VALUE: {val} | X-RAY: {p_avg}
-#  #========================================================================''')
+        if self.is_viz:
+            print(f'''
+#========================================================================
+# CALCULATION PROGRESS... COLUMN: {col} | VALUE: {val} | X-RAY: {p_avg}
+#========================================================================''')
         return {
             'feature':col,
             'value'  :val,
@@ -66,7 +66,7 @@ class Xray_Cal:
         }
 
 
-    def get_xray(self, base_xray, fold_num, col_list=[], max_point=20, N_sample=200000, ex_feature_list=[], parallel=False, cpu_cnt=multiprocessing.cpu_count()):
+    def get_xray(self, base_xray, fold_num, col_list=[], max_point=20, N_sample=150000, ex_feature_list=[], parallel=False, cpu_cnt=multiprocessing.cpu_count()):
         '''
         Explain:
         Args:
@@ -183,7 +183,7 @@ class Xray_Cal:
             else:
                 result = tmp_result.copy()
 
-        self.logger.info(f"FOLD: {fold_num}")
+        print(f"FOLD: {fold_num}")
         # 全てのfeatureのNとdata_pointを取得したら、全量データは必要なし
         try:
             del df_not_null

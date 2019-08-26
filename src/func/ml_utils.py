@@ -203,6 +203,7 @@ def Classifier(
             params['objective'] = 'binary'
 
         metric = 'auc'
+        params['metric'] = metric
         num_boost_round = num_boost_round
 
     #========================================================================
@@ -262,7 +263,7 @@ def Classifier(
 
     if not get_model:
         estimator = None
-        
+
     return score, oof_pred, test_pred, feim, estimator
 
 
