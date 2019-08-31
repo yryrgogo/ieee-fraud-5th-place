@@ -66,7 +66,7 @@ class Xray_Cal:
         }
 
 
-    def get_xray(self, base_xray, fold_num, col_list=[], max_point=20, N_sample=150000, ex_feature_list=[], parallel=False, cpu_cnt=multiprocessing.cpu_count()):
+    def get_xray(self, base_xray, fold_num, col_list=[], max_point=20, N_sample=400000, ex_feature_list=[], parallel=False, cpu_cnt=multiprocessing.cpu_count()):
         '''
         Explain:
         Args:

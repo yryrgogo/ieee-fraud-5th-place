@@ -179,7 +179,7 @@ def Classifier(
         , get_score='auc'
         , get_model=False
         , get_feim=True
-        , early_stopping_rounds=100
+        , early_stopping_rounds=50
         , num_boost_round=10000
         , weight_list=[]
 ):
@@ -194,7 +194,7 @@ def Classifier(
     elif model_type=='lgb':
         if len(params.keys())==0:
             metric = 'auc'
-            params['n_jobs'] = 32
+            params['n_jobs'] = -1
             params['metric'] = metric
             params['num_leaves'] = 31
             params['colsample_bytree'] = 0.3
