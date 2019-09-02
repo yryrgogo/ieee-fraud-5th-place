@@ -1,20 +1,21 @@
-import os
-import re
-import gc
-import sys
-import pickle
-import subprocess
-import glob
 from contextlib import contextmanager
-import datetime
+from itertools import permutations
+from joblib import Parallel, delayed
 from time import time, sleep
+import datetime
+import gc
+import glob
 import numpy as np
+import os
+from pathlib import Path
 import pandas as pd
+import pickle
+import re
+import subprocess
+import sys
 import warnings
 warnings.filterwarnings("ignore")
 
-from itertools import permutations
-from joblib import Parallel, delayed
 
 import seaborn as sns
 from matplotlib import pyplot as plt
@@ -28,6 +29,7 @@ from sklearn.model_selection import train_test_split, StratifiedKFold, KFold, Gr
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
 from sklearn.linear_model import LinearRegression, LogisticRegression, Ridge, Lasso
 from sklearn.preprocessing import LabelEncoder
+from tqdm import tqdm
 
 #========================================================================
 # original library 
@@ -168,20 +170,20 @@ def Regressor(model_type, x_train, x_valid, y_train, y_valid, x_test,
 
 
 def Classifier(
-        model_type
-        , x_train
-        , x_valid
-        , y_train
-        , y_valid
-        , x_test = []
-        , params={}
-        , seed=1208
-        , get_score='auc'
-        , get_model=False
-        , get_feim=True
-        , early_stopping_rounds=50
-        , num_boost_round=10000
-        , weight_list=[]
+        model_type,
+        x_train,
+        x_valid,
+        y_train,
+        y_valid,
+        x_test=[],
+        params={},
+        seed=1208,
+        get_model=False,
+        get_feim=True,
+        early_stopping_rounds=50,
+        num_boost_round=3500,
+        weight_list=[],
+        cols_categorical=[],
 ):
 
     if model_type=='lgr':
@@ -218,17 +220,16 @@ def Classifier(
             lgb_train = lgb.Dataset(data=x_train, label=y_train)
             lgb_valid = lgb.Dataset(data=x_valid, label=y_valid)
             
-        COLUMNS_CATEGORICAL = utils.get_categorical_features(df=x_train)
-
         estimator = lgb.train(
             params = params,
             train_set = lgb_train,
             valid_sets = lgb_valid,
             early_stopping_rounds = early_stopping_rounds,
             num_boost_round = num_boost_round,
-            categorical_feature = COLUMNS_CATEGORICAL,
+            categorical_feature = cols_categorical,
             verbose_eval = 200
         )
+        best_iter = estimator.best_iteration
     #========================================================================
 
     #========================================================================
@@ -250,11 +251,6 @@ def Classifier(
         score = roc_auc_score(y_valid, oof_pred)
     elif metric=='logloss':
         score = log_loss(y_valid, oof_pred)
-    #  print(f"""
-    #  Model: {model_type}
-    #  feature: {x_train.shape, x_valid.shape}
-    #  {get_score}: {score}
-    #  """)
 
     if get_feim:
         feim = get_tree_importance(estimator=estimator, use_cols=x_train.columns)
@@ -264,7 +260,7 @@ def Classifier(
     if not get_model:
         estimator = None
 
-    return score, oof_pred, test_pred, feim, estimator
+    return score, oof_pred, test_pred, feim, best_iter, estimator
 
 
 def get_kfold(train, Y, fold_type='kfold', fold_n=5, seed=1208, shuffle=True):
@@ -321,22 +317,20 @@ def get_best_blend_ratio(df_pred, y_train, min_ratio=0.01):
     return best, df_corr
 
 
-def get_tree_importance(estimator, use_cols):
-    feim = estimator.feature_importance(importance_type='gain')
+def get_tree_importance(estimator, use_cols, importance_type="gain"):
+    feim = estimator.feature_importance(importance_type=importance_type)
     feim = pd.DataFrame([np.array(use_cols), feim]).T
     feim.columns = ['feature', 'importance']
     feim['importance'] = feim['importance'].astype('float32')
     return feim
 
 
-def display_importances(feim, viz_num = 100):
-    cols = feim[["feature", "importance"]].groupby("feature").mean().sort_values(by="importance", ascending=False)[:viz_num].index
-    best_features = feim.loc[feim.feature.isin(cols)]
-
+def display_importance(df_feim, viz_num = 100):
+    df_feim = df_feim.reset_index().head(viz_num)
     fig = plt.figure(figsize=(12, 20))
     fig.patch.set_facecolor('white')
     sns.set_style("whitegrid")
-    sns.barplot(x="importance", y="feature", data=best_features.sort_values(by="importance", ascending=False))
+    sns.barplot(x="imp_avg", y="feature", data=df_feim)
     plt.title('LightGBM Features (avg over folds)')
     plt.tight_layout()
     plt.savefig('lgb_importances.png')
@@ -371,31 +365,6 @@ def split_train_test(df, target):
     return train, test
 
 
-def get_oof_feature(oof_path='../oof_feature/*.gz', key='', pred_col='prediction'):
-    feat_path_list = glob.glob(oof_path)
-    oof_list = []
-    for path in feat_path_list:
-        oof = utils.read_pkl_gzip(path)
-        oof_name = oof.columns.tolist()[1]
-        oof = oof.set_index(key)[pred_col]
-        oof.name = "oof_" + oof_name
-        oof_list.append(oof)
-    df_oof = pd.concat(oof_list, axis=1)
-    return df_oof
-
-def get_label_feature(df, col):
-    le = LabelEncoder().fit(df[col])
-    df[col] = le.transform(df[col])
-    return df
-
-
-# カテゴリ変数をファクトライズ (整数に置換)する関数
-def factorize_categoricals(df, cats, is_sort=True):
-    for col in cats:
-        df[col], _ = pd.factorize(df[col], sort=is_sort)
-    return df
-
-
 def parallel_df(df, func, is_row=False):
     num_partitions = cpu_count()
     num_cores = cpu_count()
@@ -413,3 +382,145 @@ def parallel_df(df, func, is_row=False):
     pool.close()
     pool.join()
     return df
+
+
+#========================================================================
+# Relate Feature
+#========================================================================
+def drop_unique_feature(df_train, use_cols, df_test=[]):
+    list_drop = []
+    for col in tqdm(df_train.columns):
+        if df_train[col].value_counts().shape[0] == 1:
+            list_drop.append(col)
+            continue
+
+    if len(list_drop) > 0:
+        print(f'  * {len(list_drop)} No Info Features: {sorted(list_drop)}')
+        return list_drop
+    else:
+        print('All Features have info.')
+        return []
+
+
+def drop_high_corr_feature(df_train, use_cols, df_test=[], threshold=0.999):
+    list_drop = []
+
+    col_corr = set()
+    corr_matrix = df_train[use_cols].corr()
+    for i in tqdm(range(len(corr_matrix.columns))):
+        for j in range(i):
+            if corr_matrix.iloc[i, j] >= threshold:
+                col = corr_matrix.columns[i] # getting the name of column
+                print(f'highly correlated: {corr_matrix.columns[j]} / {corr_matrix.columns[i]}')
+                list_drop.append(col)
+
+    if len(list_drop) > 0:
+        return list_drop
+    else:
+        print('no high correlation columns')
+        return []
+
+
+def get_oof_feature(oof_path='../oof_feature/*.gz', key='', pred_col='prediction'):
+    feat_path_list = glob.glob(oof_path)
+    oof_list = []
+    for path in feat_path_list:
+        oof = utils.read_pkl_gzip(path)
+        oof_name = oof.columns.tolist()[1]
+        oof = oof.set_index(key)[pred_col]
+        oof.name = "oof_" + oof_name
+        oof_list.append(oof)
+    df_oof = pd.concat(oof_list, axis=1)
+    return df_oof
+
+
+def get_label_feature(df, col):
+    le = LabelEncoder().fit(df[col])
+    df[col] = le.transform(df[col])
+    return df
+
+
+# カテゴリ変数をファクトライズ (整数に置換)する関数
+def factorize_categoricals(df, cats, is_sort=True):
+    for col in cats:
+        df[col], _ = pd.factorize(df[col], sort=is_sort)
+    return df
+
+
+def save_feature(df_feat, prefix, dir_save, is_train, auto_type=True, list_ignore=[], is_check=False, is_viz=True):
+    
+    DIR_FEATURE = Path('../feature') / dir_save
+    length = len(df_feat)
+    if is_check:
+        for col in df_feat.columns:
+            if col in list_ignore:
+                continue
+            # Nullがあるかどうか
+            null_len = df_feat[col].dropna().shape[0]
+            if length - null_len>0:
+                print(f"{col}  | null shape: {length - null_len}")
+            # infがあるかどうか
+            max_val = df_feat[col].max()
+            min_val = df_feat[col].min()
+            if max_val==np.inf or min_val==-np.inf:
+                print(f"{col} | max: {max_val} | min: {min_val}")
+        print("  * Finish Feature Check.")
+        sys.exit()
+        
+    for col in df_feat.columns:
+        if col in list_ignore:
+            continue
+        if auto_type:
+            feature = df_feat[col].values.astype('float32')
+        else:
+            feature = df_feat[col].values
+        if is_train:
+            feat_path = DIR_FEATURE / f'{prefix}__{col}_train'
+        else:
+            feat_path = DIR_FEATURE / f'{prefix}__{col}_test'
+            
+        if os.path.exists(str(feat_path) + '.gz'):
+            continue
+        else:
+            if is_viz:
+                print(f"{feature.shape} | {col}")
+            utils.to_pkl_gzip(path=str(feat_path), obj=feature)
+
+
+def replace_inf(df, col):
+
+    feature = df[col].values
+
+    inf_max = np.sort(feature)[::-1][0]
+    inf_min = np.sort(feature)[0]
+
+    if inf_max == np.inf:
+        for val_max in np.sort(feature)[::-1]:
+            if not(val_max==val_max) or val_max==np.inf:
+                continue
+            feature = np.where(feature==inf_max, val_max, feature)
+            break
+
+    if inf_min == -np.inf:
+        for val_min in np.sort(feature):
+            if not(val_min==val_min) or val_min==-np.inf:
+                continue
+            feature = np.where(feature==inf_min, val_min, feature)
+            break
+
+    length = len(feature)
+
+    #========================================================================
+    # infが消えたかチェック
+    inf_max = feature.max()
+    inf_min = feature.min()
+    print(
+f"""
+#========================================================================
+# inf max: {inf_max}
+# inf min: {inf_min}
+#========================================================================
+""")
+    #========================================================================
+
+    return feature

@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
+from google.cloud import storage as gcs
 from logging import StreamHandler, DEBUG, Formatter, FileHandler, getLogger
 
 
@@ -35,6 +36,11 @@ class BigQuery:
             self.dataset_name = dataset_name
             if not is_create:
                 self.set_dataset(dataset_name)
+                
+    def get_table(self, table_name):
+        table_ref = self.dataset.table(table_name)
+        table = self.client.get_table(table_ref)
+        return table
 
     def set_dataset(self, dataset_name):
         self.dataset_name = dataset_name
@@ -183,3 +189,37 @@ class BigQuery:
         )
         query_job.result()
         print("* query result to: ", table_ref.path)
+
+
+    def create_table_from_local_file(self, df, project_name, bucket_name, credentials_path, dataset_name, new_table_name, file_path):
+        
+        storage_client = gcs.Client.from_service_account_json(
+            project=project_name,
+            json_credentials_path=credentials_path
+        )
+        
+        bucket = storage_client.get_bucket(bucket_name)
+        blob = bucket.blob(new_table_name)
+        blob.upload_from_filename(filename=file_path)
+        
+        blob_name = new_table_name
+        
+        self.set_dataset(dataset_name)
+        columns = df.columns
+        column_types = []
+        for col in df.dtypes.values:
+            if str(col).count('float'):
+                dtype = 'FLOAT'
+            elif str(col).count('int'):
+                dtype = 'NUMERIC'
+            elif str(col).count('date'):
+                dtype = 'DATE'
+            elif str(col).count('obj') or str(col).count('str'):
+                dtype = 'STRING'
+            column_types.append(dtype)
+        column_modes = ['NULLABLE'] * len(columns)
+
+        schema = self.create_schema(columns, column_types, column_modes)
+
+        self.create_table(new_table_name, schema)
+        self.insert_from_gcs(new_table_name, bucket_name, blob_name)
