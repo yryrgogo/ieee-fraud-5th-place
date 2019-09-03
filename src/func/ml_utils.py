@@ -387,9 +387,21 @@ def parallel_df(df, func, is_row=False):
 #========================================================================
 # Relate Feature
 #========================================================================
-def drop_unique_feature(df_train, use_cols, df_test=[]):
+
+def check_unique_feature(col, feature):
+    feature = feature[feature==feature]
+    if np.unique(feature[:1000]).shape[0] != 1:
+        return True
+    if np.unique(feature).shape[0] == 1:
+        print(f"{col} has no info.")
+        return False
+    else:
+        return True
+    
+
+def drop_unique_feature(df_train, df_test=[]):
     list_drop = []
-    for col in tqdm(use_cols):
+    for col in tqdm(df_train.columns):
         if df_train[col].value_counts().shape[0] == 1:
             list_drop.append(col)
             continue
@@ -402,11 +414,11 @@ def drop_unique_feature(df_train, use_cols, df_test=[]):
         return []
 
 
-def drop_high_corr_feature(df_train, use_cols, df_test=[], threshold=0.999):
+def drop_high_corr_feature(df_train, df_test=[], threshold=0.999):
     list_drop = []
 
     col_corr = set()
-    corr_matrix = df_train[use_cols].corr()
+    corr_matrix = df_train.corr()
     for i in tqdm(range(len(corr_matrix.columns))):
         for j in range(i):
             if corr_matrix.iloc[i, j] >= threshold:

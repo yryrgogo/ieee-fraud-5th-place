@@ -220,29 +220,40 @@ def eval_adversarial_validation(df_train, df_test, use_cols, model_type='lgb', p
     return adv_cv_score, adv_df_feim, adv_pred_result
 
 
-def eval_train(df_train, Y, df_test, same_user_path, model_type='lgb', params={}, is_corr=False, is_adv=False, is_viz=False):
+def eval_check_feature(df_train, df_test, is_corr=False):
+    # 情報をもたない or 重複してるようなfeatureを除く
+    print("* Check Unique Feature.")
+    list_unique_drop = drop_unique_feature(df_train, df_test)
+    
+    if len(list_unique_drop):
+        print(f"  * {len(list_unique_drop)}feature unique drop and move trush")
+        print(list_unique_drop)
+        for col in list(set(list_unique_drop)):
+            if col.count('raw'):
+                from_dir = 'raw_use'
+                to_dir = 'raw_trush'
+            else:
+                from_dir = 'org_use'
+                to_dir = 'org_trush'
+            move_feature([col], from_dir, to_dir)
+    return list_unique_drop
+    
+#     if is_corr:
+#         print("* Check High Corr Feature.")
+#         list_corr_drop = drop_high_corr_feature(df_train, df_test)
+#         list_corr_drop = list(set(list_corr_drop))
+#         if len(list_corr_drop):
+#             print(f"  * {len(list_corr_drop)}feature corr drop and move trush")
+#             df_train.drop(list_corr_drop, axis=1, inplace=True)
+#             move_feature(list_corr_drop, 'raw_use', 'raw_trush')
+
+
+def eval_train(df_train, Y, df_test, same_user_path, model_type='lgb', params={}, is_adv=False, is_viz=False):
     
     use_cols = [col for col in df_train.columns if col not in COLUMNS_IGNORE]
     df_train = join_same_user(df_train, same_user_path)
     df_test = join_same_user(df_test, same_user_path)
     
-    # 情報をもたない or 重複してるようなfeatureを除く
-    print("* Check Unique Feature.")
-    list_unique_drop = drop_unique_feature(df_train, use_cols, df_test)
-    if len(list_unique_drop):
-        print(f"  * {len(list_unique_drop)}feature unique drop and move trush")
-        print(list_unique_drop)
-        df_train.drop(list_unique_drop, axis=1, inplace=True)
-        move_feature(list(set(list_unique_drop)), 'raw_use', 'raw_trush', prefix='raw__')
-    
-    if is_corr:
-        print("* Check High Corr Feature.")
-        list_corr_drop = drop_high_corr_feature(df_train, use_cols, df_test)
-        list_corr_drop = list(set(list_corr_drop))
-        if len(list_corr_drop):
-            print(f"  * {len(list_corr_drop)}feature corr drop and move trush")
-            df_train.drop(list_corr_drop, axis=1, inplace=True)
-            move_feature(list_corr_drop, 'raw_use', 'raw_trush', prefix='raw__')
         
     if len(params)==0:
         params = get_params(model_type)
@@ -277,7 +288,7 @@ def eval_train(df_train, Y, df_test, same_user_path, model_type='lgb', params={}
     else:
         adv_cv_score = -1
         
-    if is_viz:
+    if is_viz and is_adv:
         if model_type=="lgb":
             print("* Adversarial Validation Feature Importance")
             display_importance(adv_df_feim)
@@ -301,4 +312,6 @@ def eval_train(df_train, Y, df_test, same_user_path, model_type='lgb', params={}
     )
     
     if is_adv:
-        return df_feim, adv_df_feim
+        return [df_feim, adv_df_feim]
+    else:
+        return [df_feim]

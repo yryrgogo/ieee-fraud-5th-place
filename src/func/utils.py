@@ -353,8 +353,8 @@ def load_file(path, delimiter='gz'):
     if path.count('.csv'):
         return pd.read_csv(path)
     filename = get_filename(path=path, delimiter=delimiter)
-    if filename.count('__'):
-        filename = ''.join(filename.split('__')[1:])
+#     if filename.count('__'):
+#         filename = ''.join(filename.split('__')[1:])
 
     if filename.count('_train'):
         filename = re.sub('_train', '', filename)
