@@ -349,6 +349,18 @@ def get_dummies(df, cat_list, drop=True):
     return df
 
 
+def get_cnt_feature(df, columns):
+    for col in columns:
+        if (str(df[col].dtype) == 'object' or str(df[col].dtype) == 'category' ):
+            df[col].fillna('#', inplace=True)
+        else:
+            df[col].fillna(-98765, inplace=True)
+        
+        cnt_map = df[col].value_counts().to_dict()
+        df[f"cnt__{col}"] = df[col].map(lambda x: cnt_map[x])
+    return df
+
+
 def split_dataset(df, val_no, val_col='valid_no'):
     """
     時系列用のtrain, testデータを切る。validation_noを受け取り、

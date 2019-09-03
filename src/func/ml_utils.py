@@ -389,7 +389,7 @@ def parallel_df(df, func, is_row=False):
 #========================================================================
 def drop_unique_feature(df_train, use_cols, df_test=[]):
     list_drop = []
-    for col in tqdm(df_train.columns):
+    for col in tqdm(use_cols):
         if df_train[col].value_counts().shape[0] == 1:
             list_drop.append(col)
             continue
@@ -434,16 +434,46 @@ def get_oof_feature(oof_path='../oof_feature/*.gz', key='', pred_col='prediction
     return df_oof
 
 
-def get_label_feature(df, col):
-    le = LabelEncoder().fit(df[col])
-    df[col] = le.transform(df[col])
+def get_label_feature(df, cols_cat):
+    for col in cols_cat:
+        le = LabelEncoder().fit(df[col])
+        df[f"label__{col}"] = le.transform(df[col])
+        df.drop(col, axis=1, inplace=True)
     return df
 
 
-# カテゴリ変数をファクトライズ (整数に置換)する関数
-def factorize_categoricals(df, cats, is_sort=True):
+def get_factorize_feature(df, cols_cat, is_sort=True):
     for col in cats:
         df[col], _ = pd.factorize(df[col], sort=is_sort)
+    return df
+
+
+def get_dummie_feature(df, cols_cat, drop=True):
+
+    before_cols = list(df.columns.values)
+
+    for col in cols_cat:
+        df = pd.concat([df, pd.get_dummies(df[col], prefix=col)], axis=1)
+    if drop:
+        df.drop(cols_cat, axis=1, inplace=True)
+
+    after_cols = list(df.columns.values)
+    dummie_cols = set(after_cols) - set(before_cols)
+    for col in dummie_cols:
+        df.rename(columns={col:f"{col}_dummie"}, inplace=True)
+    return df
+
+
+def get_cnt_feature(df, columns):
+    for col in columns:
+        if (str(df[col].dtype) == 'object' or str(df[col].dtype) == 'category' ):
+            df[col].fillna('#', inplace=True)
+        else:
+            df[col].fillna(-98765, inplace=True)
+        
+        cnt_map = df[col].value_counts().to_dict()
+        df[f"cnt__{col}"] = df[col].map(lambda x: cnt_map[x])
+        df.drop(col, axis=1, inplace=True)
     return df
 
 

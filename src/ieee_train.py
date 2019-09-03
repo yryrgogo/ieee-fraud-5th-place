@@ -19,8 +19,9 @@ warnings.simplefilter('ignore')
 # Config
 #========================================================================
 COLUMN_ID = 'TransactionID'
+COLUMN_DT = 'TransactionID'
 COLUMN_TARGET = 'isFraud'
-COLUMNS_IGNORE = [COLUMN_ID, COLUMN_TARGET, 'is_train']
+COLUMNS_IGNORE = [COLUMN_ID, COLUMN_DT, COLUMN_TARGET, 'is_train', 'pred_user']
 
 
 def join_same_user(df, pred_user_path):
@@ -111,23 +112,23 @@ def ieee_cv(df_train, Y, df_test, use_cols, params={}, is_adv=False):
         feim_list.append(feim)
         
     cv_score = np.mean(score_list)
-    feim_df = pd.concat(feim_list, axis=1)
-    feim_df['imp_avg'] = feim_df.mean(axis=1)
-    feim_df.sort_values(by='imp_avg', ascending=False, inplace=True)
+    df_feim = pd.concat(feim_list, axis=1)
+    df_feim['imp_avg'] = df_feim.mean(axis=1)
+    df_feim.sort_values(by='imp_avg', ascending=False, inplace=True)
     
     if is_adv:
         pred_result = pd.Series(y_pred, index=df_train[COLUMN_ID].values, name='adv_pred_' + start_time)
-        return cv_score, feim_df, pred_result
+        return cv_score, df_feim, pred_result
     
     test_pred_avg = np.mean(test_preds, axis=0)
     all_pred = np.append(y_pred, test_pred_avg)
     all_ids = np.append(df_train[COLUMN_ID].values, df_test[COLUMN_ID].values)
     pred_result = pd.Series(all_pred, index=all_ids, name='pred_' + start_time)
     
-    return best_iteration, cv_score, feim_df, pred_result, score_list
+    return best_iteration, cv_score, df_feim, pred_result, score_list
 
 
-def save_log_cv_result(best_iteration, cv_score, feim_df, model_type, n_features, n_rows, params, pred_result, score_list, adv_cv_score=-1):
+def save_log_cv_result(best_iteration, cv_score, df_feim, model_type, n_features, n_rows, params, pred_result, score_list, adv_cv_score=-1):
 
     #========================================================================
     # Save
@@ -135,7 +136,7 @@ def save_log_cv_result(best_iteration, cv_score, feim_df, model_type, n_features
     start_time = "{0:%Y%m%d_%H%M%S}".format(datetime.datetime.now())[:13]
     # Feature Importance
     cvs = str(cv_score).replace('.', '-')
-    to_pkl_gzip(obj=feim_df, path=f"../output/feature_importances/{start_time}__CV{cvs}__feature{n_features}")
+    to_pkl_gzip(obj=df_feim, path=f"../output/feature_importances/{start_time}__CV{cvs}__feature{n_features}")
     # Prediction
     to_pkl_gzip(obj=pred_result, path=f"../output/pred_result/{start_time}__CV{cvs}__all_preds")
     # Submit File
@@ -172,16 +173,22 @@ def save_log_cv_result(best_iteration, cv_score, feim_df, model_type, n_features
     
     
 def valid_submit_prediction(prediction):
+    """Summary line.
+    他Submit Prediction Valueとの相関をチェック
+    Args:
     
+    Returns:
+    """
     list_submit_path = sorted(glob('../submit/validation/*.csv'))
     list_submit = []
     
+    print("* Check Corr with Past Submit.")
     for path in list_submit_path:
         lb_score = re.search(rf'([^/LB]*).csv', path).group(1)
         submit = pd.read_csv(path)[COLUMN_TARGET].values
         
         corr = np.min(np.corrcoef(prediction, submit))
-        print(f"LB{lb_score} / {corr}")
+        print(f"  * LB{lb_score} / {corr}")
 
 
 
@@ -201,7 +208,7 @@ def eval_adversarial_validation(df_train, df_test, use_cols, model_type='lgb', p
     if len(params)==0:
         params = get_params(model_type)
     
-    adv_cv_score, adv_feim_df, adv_pred_result = ieee_cv(
+    adv_cv_score, adv_df_feim, adv_pred_result = ieee_cv(
         all_data,
         Y_ADV,
         [],
@@ -210,7 +217,7 @@ def eval_adversarial_validation(df_train, df_test, use_cols, model_type='lgb', p
         is_adv=True
     )
     
-    return adv_cv_score, adv_feim_df, adv_pred_result
+    return adv_cv_score, adv_df_feim, adv_pred_result
 
 
 def eval_train(df_train, Y, df_test, same_user_path, model_type='lgb', params={}, is_corr=False, is_adv=False, is_viz=False):
@@ -283,7 +290,7 @@ def eval_train(df_train, Y, df_test, same_user_path, model_type='lgb', params={}
     save_log_cv_result(
         best_iteration,
         cv_score,
-        feim_df,
+        df_feim,
         model_type,
         n_features,
         n_rows,
