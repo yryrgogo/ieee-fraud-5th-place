@@ -47,8 +47,8 @@ df_train.drop(COLUMN_TARGET, axis=1, inplace=True)
 valid_no = int(sys.argv[1])
 
 list_feim = []
-valid_paths_train = paths_train_feature[valid_no * 800 : (valid_no + 1) * 800]
-valid_paths_test  = paths_test_feature[valid_no * 800  : (valid_no + 1) * 800]
+valid_paths_train = paths_train_feature[valid_no * 130 : (valid_no + 1) * 130]
+valid_paths_test  = paths_test_feature[valid_no * 130  : (valid_no + 1) * 130]
 
 #========================================================================
 # pathの存在チェック。なぜかたびたびFileNotFoundErrorが起きるので,,,
@@ -68,8 +68,10 @@ for path in remove_paths:
         valid_paths_test.remove(path)
         print(f'remove {path}')
 
-df_feat_train = reduce_mem_usage( parallel_load_data(valid_paths_train) )
-df_feat_test  = reduce_mem_usage( parallel_load_data(valid_paths_test) )
+#  df_feat_train = reduce_mem_usage( parallel_load_data(valid_paths_train) )
+#  df_feat_test  = reduce_mem_usage( parallel_load_data(valid_paths_test) )
+df_feat_train =  parallel_load_data(valid_paths_train)
+df_feat_test  =  parallel_load_data(valid_paths_test)
 
 col_drops = eval_check_feature(df_feat_train, df_feat_test)
 
@@ -101,13 +103,11 @@ params = {
     'model_type': model_type,
     'objective': 'binary',
     'fold': ['stratified', 'group'][1],
-#     'num_leaves': 2**6-1,
-    'num_leaves': 2**5-1,
+    'num_leaves': 2**6-1,
     'max_depth': 8,
     'subsample': 0.75,
     'subsample_freq': 1,
-#     'colsample_bytree' : 0.20,
-    'colsample_bytree' : 0.15,
+    'colsample_bytree' : 0.20,
     'lambda_l1' : 0.1,
     'lambda_l2' : 1.0,
     'learning_rate' : 0.1,
@@ -131,9 +131,9 @@ list_feim.append(list_result_feim)
 feim = list_result_feim[0]
 max_imp = feim['imp_avg'].max()
 # thres_imp = max_imp/100
-#  thres_imp = max_imp/25
+#  thres_imp = max_imp/50
 #  for feature_name in feim[feim['imp_avg']<thres_imp].index:
-for feature_name in feim.tail(feim.shape[0]-50).index:
+for feature_name in feim.tail(30).index:
     if feature_name.count('raw'):
         from_dir = 'raw_use'
         to_dir = 'raw_trush'

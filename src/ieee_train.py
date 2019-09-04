@@ -235,7 +235,13 @@ def eval_check_feature(df_train, df_test, is_corr=False):
             else:
                 from_dir = 'org_use'
                 to_dir = 'org_trush'
-            move_feature([col], from_dir, to_dir)
+            try:
+                move_feature([col], from_dir, to_dir)
+            except FileNotFoundError:
+                from_dir = 'valid'
+                to_dir = 'org_trush'
+                move_feature([col], from_dir, to_dir)
+                
     return list_unique_drop
     
 #     if is_corr:
@@ -269,6 +275,8 @@ def eval_train(df_train, Y, df_test, same_user_path, model_type='lgb', params={}
     test_pred = pred_result.values[len(df_train):]
     valid_submit_prediction(test_pred)
     
+    print(f"* CV: {cv_score} | BestIter: {best_iteration}")
+    
     if is_viz:
         if model_type=="lgb":
             print("* Training Feature Importance")
@@ -285,6 +293,7 @@ def eval_train(df_train, Y, df_test, same_user_path, model_type='lgb', params={}
             model_type,
             params
         )
+        print(f"* AdversarialCV: {adv_cv_score}")
     else:
         adv_cv_score = -1
         
