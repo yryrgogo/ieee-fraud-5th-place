@@ -13,28 +13,22 @@ def diff_of_days(day1, day2):
     try:
         days = (parse(day1) - parse(day2)).days
     except TypeError:
-        try:
-            days = (day1 - day2).days
-        except TypeError:
-            days = None
+        days = (day1 - day2).days
     return days
 
 def diff_of_times(day1, day2):
     try:
-        days = (parse(day1) - parse(day2)).seconds/60
+        days = (parse(day1) - parse(day2))
     except TypeError:
-        days = (day1 - day2).seconds/60
+        days = (day1 - day2)
     return days
 
 def date_add_days(start_date, add_days):
     if str(type(start_date)).count('time'):
         end_date = start_date + timedelta(days=add_days)
     elif str(type(start_date)).count('str'):
-        try:
-            end_date = parse(start_date) + timedelta(days=add_days)
-            end_date = end_date.strftime('%Y-%m-%d')
-        except ValueError:
-            end_date = None
+        end_date = parse(start_date) + timedelta(days=add_days)
+        end_date = end_date.strftime('%Y%m%d')
     return end_date
 
 def date_add_times(start_date, add_times):
@@ -57,8 +51,16 @@ def get_label(df, end_date, n_day):
     return label
 
 def get_select_term_feat(df, base_key, base_date, end_date, n_day, value_name):
+    """Summary line.
+    end_date = base_dateとして使うのがメインだが、時々ずらしたいことがあるので
+    base_dateを別途用意している
+
+    Args:
+
+    Returns:
+    """
     start_date = date_add_days(end_date, -n_day)
-    df_tmp = df[(df.date < end_date) & (df.date > start_date)].copy()
+    df_tmp = df[ (start_date <= df.date) & (df.date <= end_date) ].copy()
     logger.info(f'''
 #========================================================================
 # base_key   : {base_key}
