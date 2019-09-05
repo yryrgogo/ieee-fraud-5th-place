@@ -50,7 +50,7 @@ def get_label(df, end_date, n_day):
     #  label = label.reset_index(drop=True)
     return label
 
-def get_select_term_feat(df, base_key, base_date, end_date, n_day, value_name):
+def date_term_agg(df, base_key, base_date, end_date, n_day, value_name):
     """Summary line.
     end_date = base_dateとして使うのがメインだが、時々ずらしたいことがあるので
     base_dateを別途用意している
@@ -80,6 +80,7 @@ def get_select_term_feat(df, base_key, base_date, end_date, n_day, value_name):
                                                                            f'{base_key}_skew_day{n_day}': 'skew'})
     result.reset_index(inplace=True)
     result['date'] = base_date
+    result.set_index('date', inplace=True)
     return result
 
 def get_country_exp_visitor_feat(label, key, n_day):

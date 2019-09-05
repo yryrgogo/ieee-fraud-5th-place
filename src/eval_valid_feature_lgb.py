@@ -20,24 +20,24 @@ COLUMNS_IGNORE = [COLUMN_ID, COLUMN_DT, COLUMN_TARGET, 'is_train', 'date']
 
 paths_train = glob('../feature/raw_use/*_train.gz')
 paths_train = [path for path in paths_train 
-               if path.count('Fraud') 
-               or path.count('tionID') 
-               or path.count('C1')
-               or path.count('C13')
-               or path.count('V232')
-               or path.count('addr1')
+#                if path.count('Fraud') 
+#                or path.count('tionID') 
+#                or path.count('C1')
+#                or path.count('C13')
+#                or path.count('V232')
+#                or path.count('addr1')
 ]
 paths_test = glob('../feature/raw_use/*_test.gz')
 paths_test = [path for path in paths_test 
-               if path.count('Fraud') 
-               or path.count('tionID') 
-               or path.count('C1')
-               or path.count('C13')
-               or path.count('V232')
-               or path.count('addr1')
+#                if path.count('Fraud') 
+#                or path.count('tionID') 
+#                or path.count('C1')
+#                or path.count('C13')
+#                or path.count('V232')
+#                or path.count('addr1')
 ]
-paths_train_feature = sorted(glob('../feature/org_use/*_train.gz'))
-paths_test_feature  = sorted(glob('../feature/org_use/*_test.gz'))
+paths_train += sorted(glob('../feature/org_use/*_train.gz'))
+paths_test  += sorted(glob('../feature/org_use/*_test.gz'))
 
 df_train = reduce_mem_usage( parallel_load_data(paths_train) )
 df_test  = reduce_mem_usage( parallel_load_data(paths_test) )
@@ -47,8 +47,10 @@ df_train.drop(COLUMN_TARGET, axis=1, inplace=True)
 valid_no = int(sys.argv[1])
 
 list_feim = []
-valid_paths_train = paths_train_feature[valid_no * 130 : (valid_no + 1) * 130]
-valid_paths_test  = paths_test_feature[valid_no * 130  : (valid_no + 1) * 130]
+valid_paths_train = sorted(glob('../feature/valid/*_train.gz'))[:400]
+valid_paths_test  = sorted(glob('../feature/valid/*_test.gz'))[:400]
+# valid_paths_train = paths_train_feature[valid_no * 130 : (valid_no + 1) * 130]
+# valid_paths_test  = paths_test_feature[valid_no * 130  : (valid_no + 1) * 130]
 
 #========================================================================
 # pathの存在チェック。なぜかたびたびFileNotFoundErrorが起きるので,,,
@@ -68,8 +70,6 @@ for path in remove_paths:
         valid_paths_test.remove(path)
         print(f'remove {path}')
 
-#  df_feat_train = reduce_mem_usage( parallel_load_data(valid_paths_train) )
-#  df_feat_test  = reduce_mem_usage( parallel_load_data(valid_paths_test) )
 df_feat_train =  parallel_load_data(valid_paths_train)
 df_feat_test  =  parallel_load_data(valid_paths_test)
 
@@ -96,7 +96,8 @@ tmp_train.drop(diff_cols, axis=1, inplace=True)
 same_user_path = '../output/same_user_pattern/0902__same_user_id__card_addr_pemail_M.csv'
 model_type = "lgb"
 params = {
-    'n_jobs': 60,
+#     'n_jobs': 60,
+    'n_jobs': 48,
     'seed': 1208,
     'n_splits': 5,
     'metric': 'auc',
@@ -122,7 +123,6 @@ list_result_feim = eval_train(
     is_adv=[True, False][1],
     is_viz=[True, False][1],
 )
-list_feim.append(list_result_feim)
 
 #========================================================================
 # Importance Gain が最大のfeatureの1%未満のGainしかもたないFeatureを除外する
@@ -130,16 +130,20 @@ list_feim.append(list_result_feim)
 
 feim = list_result_feim[0]
 max_imp = feim['imp_avg'].max()
+valid_features = [i for i in feim.index if i.startswith('503') or i.startswith('504') or i.startswith('505')]
 # thres_imp = max_imp/100
 #  thres_imp = max_imp/50
 #  for feature_name in feim[feim['imp_avg']<thres_imp].index:
-for feature_name in feim.tail(30).index:
+# for feature_name in feim.tail(30).index:
+for feature_name in valid_features[100:]:
     if feature_name.count('raw'):
-        from_dir = 'raw_use'
+#         from_dir = 'raw_use'
         to_dir = 'raw_trush'
     else:
-        from_dir = 'org_use'
+#         from_dir = 'org_use'
         to_dir = 'org_trush'
+    from_dir = 'valid'
+    to_dir = 'valid_trush'
     try:
         move_feature([feature_name], from_dir, to_dir)
     except FileNotFoundError:
