@@ -3,6 +3,7 @@ import numpy as np
 import os
 import pandas as pd
 import shutil
+import sys
 
 
 HOME = Path().home()
@@ -21,9 +22,13 @@ def move_feature(list_feature, from_dir, to_dir):
         to_train_feature_path = str(DIR_PJ / DIR_TO_FEATURE / f'{feature}_train.gz')
         to_test_feature_path  = str(DIR_PJ / DIR_TO_FEATURE / f'{feature}_test.gz')
         
-        if not os.path.exists(to_train_feature_path):
+        if os.path.exists(from_train_feature_path):
+#             print(from_train_feature_path)
+#             sys.exit()
             shutil.move(from_train_feature_path, to_path)
-        if not os.path.exists(to_test_feature_path):
+        if os.path.exists(from_test_feature_path):
+#             print(from_test_feature_path)
+#             sys.exit()
             shutil.move(from_test_feature_path, to_path)
 
 def reduce_mem_usage(df):
