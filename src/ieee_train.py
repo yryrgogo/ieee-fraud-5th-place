@@ -63,7 +63,7 @@ def get_params(model_type):
     return params
 
 
-def ieee_cv(df_train, Y, df_test, COLUMN_GROUP, use_cols, params={}, is_adv=False, is_valid=False):
+def ieee_cv(logger, df_train, Y, df_test, COLUMN_GROUP, use_cols, params={}, is_adv=False, is_valid=False):
     start_time = "{0:%Y%m%d_%H%M%S}".format(datetime.datetime.now())[:13]
     seed       = params['seed']
     model_type = params['model_type']
@@ -95,8 +95,9 @@ def ieee_cv(df_train, Y, df_test, COLUMN_GROUP, use_cols, params={}, is_adv=Fals
         y_valid = Y.iloc[val_idx]
         
         val_gr = df_train.iloc[val_idx][COLUMN_GROUP].value_counts()
+        dtm = val_gr.index.tolist()[0]
         print("="*20)
-        with timer(f"  * Fold{n_fold} Validation-{COLUMN_GROUP} {val_gr.index[0]}: {val_gr.values[0]}"):
+        with timer(f"  * Fold{n_fold} Validation-{COLUMN_GROUP} {dtm}: {val_gr.values[0]}"):
             score, oof_pred, test_pred, feim, best_iter, _ = Classifier(
                 model_type=model_type,
                 x_train=x_train,
@@ -107,6 +108,7 @@ def ieee_cv(df_train, Y, df_test, COLUMN_GROUP, use_cols, params={}, is_adv=Fals
                 params=params,
                 early_stopping_rounds = early_stopping_rounds,
             )
+        logger.info(f"  * Fold{n_fold} {dtm}: {score}")
         print("="*20)
 
         score_list.append(score)
@@ -133,7 +135,7 @@ def ieee_cv(df_train, Y, df_test, COLUMN_GROUP, use_cols, params={}, is_adv=Fals
     
     # Feature Importance
     cvs = str(cv_score).replace('.', '-')
-    to_pkl_gzip(obj=df_feim, path=f"../output/feature_importances/{start_time}__CV{cvs}__feature{n_features}")
+    to_pkl_gzip(obj=df_feim, path=f"../output/feature_importances/{start_time}__CV{cvs}__feature{len(use_cols)}")
     
     with timer("  * Make Prediction Result File."):
         if is_valid:
@@ -152,7 +154,7 @@ def ieee_cv(df_train, Y, df_test, COLUMN_GROUP, use_cols, params={}, is_adv=Fals
             to_pkl_gzip(obj=pred_result, path=f"../output/pred_result/{start_time}__CV{cvs}__all_preds")
             # Submit File
             pred_result.columns = [COLUMN_ID, COLUMN_TARGET]
-            pred_result.iloc[n_rows:].to_csv(f"../submit/tmp/{start_time}__CV{cvs}__feature{n_features}.csv", index=False)
+            pred_result.iloc[len(df_train):].to_csv(f"../submit/tmp/{start_time}__CV{cvs}__feature{len(use_cols)}.csv", index=False)
     
     return best_iteration, cv_score, df_feim, pred_result, score_list
 
@@ -162,6 +164,8 @@ def save_log_cv_result(best_iteration, cv_score, model_type, n_features, n_rows,
     #========================================================================
     # Log
     #========================================================================
+    start_time = "{0:%Y%m%d_%H%M%S}".format(datetime.datetime.now())[:13]
+    
     log_map = {}
     log_map['datetime']    = start_time
     log_map['n_features']  = n_features
@@ -209,8 +213,7 @@ def valid_submit_prediction(prediction):
         print(f"  * LB{lb_score} / {corr}")
 
 
-
-def eval_adversarial_validation(df_train, df_test, COLUMN_GROUP, use_cols, model_type='lgb', params={}):
+def eval_adversarial_validation(logger, df_train, df_test, COLUMN_GROUP, use_cols, model_type='lgb', params={}):
     #========================================================================
     # Adversarial Validation
     #========================================================================
@@ -227,6 +230,7 @@ def eval_adversarial_validation(df_train, df_test, COLUMN_GROUP, use_cols, model
         params = get_params(model_type)
     
     adv_cv_score, adv_df_feim, adv_pred_result = ieee_cv(
+        logger,
         all_data,
         Y_ADV,
         [],
@@ -264,7 +268,7 @@ def eval_check_feature(df_train, df_test, is_corr=False):
                 
     return list_unique_drop
 
-def eval_train(df_train, Y, df_test, COLUMN_GROUP, model_type='lgb', params={}, is_adv=False, is_viz=False, is_valid=False):
+def eval_train(logger, df_train, Y, df_test, COLUMN_GROUP, model_type='lgb', params={}, is_adv=False, is_viz=False, is_valid=False):
     
     use_cols = [col for col in df_train.columns if col not in COLUMNS_IGNORE]
 #     df_train = join_same_user(df_train, same_user_path)
@@ -275,6 +279,7 @@ def eval_train(df_train, Y, df_test, COLUMN_GROUP, model_type='lgb', params={}, 
         params = get_params(model_type)
     
     best_iteration, cv_score, df_feim, pred_result, score_list = ieee_cv(
+        logger,
         df_train,
         Y,
         df_test,
@@ -302,6 +307,7 @@ def eval_train(df_train, Y, df_test, COLUMN_GROUP, model_type='lgb', params={}, 
     #========================================================================
     if is_adv:
         adv_cv_score, adv_df_feim, adv_pred_result = eval_adversarial_validation(
+            logger,
             df_train,
             df_test,
             COLUMN_GROUP,

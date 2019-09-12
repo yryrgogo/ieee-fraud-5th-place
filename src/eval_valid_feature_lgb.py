@@ -135,10 +135,10 @@ list_result_feim = eval_train(
 feim = list_result_feim[0]
 max_imp = feim['imp_avg'].max()
 #  valid_features = [i for i in feim.index if i.startswith('503') or i.startswith('504') or i.startswith('505')]
-thres_imp = 500
+thres_imp = 800
 #  thres_imp = max_imp/50
 #  for feature_name in feim[feim['imp_avg']<thres_imp].index:
-for feature_name in feim.iloc[550:].index:
+for feature_name in feim.iloc[thres_imp:].index:
     from_dir = 'valid'
     to_dir = 'valid_trush'
     try:
@@ -147,7 +147,7 @@ for feature_name in feim.iloc[550:].index:
         print(feature_name)
 
 
-for feature_name in feim.iloc[:550].index:
+for feature_name in feim.iloc[:thres_imp].index:
 #  for feature_name in valid_features[100:]:
     from_dir = 'valid'
     to_dir = 'valid_use'
