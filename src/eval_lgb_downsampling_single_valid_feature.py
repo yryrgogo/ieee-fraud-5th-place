@@ -21,7 +21,7 @@ try:
     logger
 except NameError:
     logger = logger_func()
-
+    
 def get_tree_importance(estimator, use_cols, importance_type="gain"):
     feim = estimator.feature_importance(importance_type=importance_type)
     feim = pd.DataFrame([np.array(use_cols), feim]).T
@@ -29,18 +29,14 @@ def get_tree_importance(estimator, use_cols, importance_type="gain"):
     feim['importance'] = feim['importance'].astype('float32')
     return feim
 
-is_shuffle=False
+
 valid_no = sys.argv[1]
 if valid_no=='1':
     is_reverse=False
     i_add = 0
-    np.random.seed(1)
-    is_shuffle=True
 elif valid_no=='2':
     is_reverse=True
     i_add = 0
-    np.random.seed(2)
-    is_shuffle=True
 elif valid_no=='3':
     is_reverse=False
     i_add = 12
@@ -53,14 +49,9 @@ elif valid_no=='5':
 elif valid_no=='6':
     is_reverse=True
     i_add = 24
-
-valid_paths_train = sorted(glob('../feature/valid/*_train.gz'), reverse=is_reverse)
-if is_shuffle:
-    valid_paths_train = np.random.choice(valid_paths_train, len(valid_paths_train), False)
-else:
-    pass
-
+    
 save_file_path = '../output/valid_single_feature.csv'
+move_check_path = './'
 
 COLUMN_ID = 'TransactionID'
 COLUMN_DT = 'TransactionDT'
@@ -70,7 +61,7 @@ COLUMNS_IGNORE = [COLUMN_ID, COLUMN_DT, COLUMN_TARGET, COLUMN_GROUP, 'is_train',
 
 paths_train = glob('../feature/raw_use/*_train.gz')
 paths_train += sorted(glob('../feature/org_use/*_train.gz'))
-paths_train += sorted(glob('../feature/valid_use/*_train.gz'))
+# paths_train += sorted(glob('../feature/valid_use/*_train.gz'))
 
 df_train = parallel_load_data(paths_train)
 
@@ -110,24 +101,22 @@ fold_map = {
     2: '2018-3',
 }
 base_fold_score = {
-    0: 0.92654,
-    1: 0.94230,
-    2: 0.93380,
+    0: 0.92810,
+    1: 0.94380,
+    2: 0.93400,
 }
-
-print("Num Feature", len(valid_paths_train))
-
-for i in range(8):
+    
+valid_paths_train = sorted(glob('../feature/valid/*_train.gz'), reverse=is_reverse)
+for i in range(10):
 
     start_time = "{0:%Y%m%d_%H%M%S}".format(datetime.datetime.now())[:14]
     #  valid_path = valid_paths_train[(i+i_add):(i+i_add)+1]
     valid_path = valid_paths_train[(i+i_add):(i+i_add+1)]
-
+    
     list_done = pd.read_csv('done.csv').values
     if valid_path[0] in list_done:
-        print('Done Feature.')
         continue
-
+    
     with open('done.csv', 'a') as f:
         line = f'{valid_path[0]}\n'
         f.write(line)
@@ -136,7 +125,6 @@ for i in range(8):
     if os.path.exists(valid_path[0]):
         pass
     else:
-        print('No exist path.')
         continue
     
     
