@@ -44,14 +44,22 @@ elif valid_no=='2':
 elif valid_no=='3':
     is_reverse=False
     i_add = 12
+    np.random.seed(3)
+    is_shuffle=True
 elif valid_no=='4':
     is_reverse=True
     i_add = 12
+    np.random.seed(4)
+    is_shuffle=True
 elif valid_no=='5':
     is_reverse=False
     i_add = 24
+    np.random.seed(5)
+    is_shuffle=True
 elif valid_no=='6':
     is_reverse=True
+    np.random.seed(6)
+    is_shuffle=True
     i_add = 24
 
 valid_paths_train = sorted(glob('../feature/valid/*_train.gz'), reverse=is_reverse)
@@ -61,6 +69,7 @@ else:
     pass
 
 save_file_path = '../output/valid_single_feature.csv'
+check_score_path = 'check_score.csv'
 
 COLUMN_ID = 'TransactionID'
 COLUMN_DT = 'TransactionDT'
@@ -150,7 +159,8 @@ for i in range(8):
     
     use_cols = [col for col in tmp_train.columns if col not in COLUMNS_IGNORE]
     
-        
+    cnt = 0    
+    cv = 0
     for fold in range(3):
         with timer('  * Make Dataset'):
             if fold==0:
@@ -238,12 +248,34 @@ for i in range(8):
             # 三行もたないfeatureは各foldをクリアできなかった
             if score < base_fold_score[fold]:
                 break
+            else:
+                cnt +=1
+                cv += score/3
             
             if not is_result and is_write:
                 with open(save_file_path, 'a') as f:
                     line = f'{start_time},{fold_map[fold]},{feature_name},{score}\n'
                     f.write(line)
             
+    if cnt==3:
+        with open(check_score_path, 'a') as f:
+            line = f'{feature_name},{cv}\n'
+            f.write(line)
+            
+        df_score = pd.read_csv(check_score_path, header=None)
+        if len(df_score)>2:
+            from_dir = 'valid'
+            to_dir = 'valid_use'
+            df_score.columns = ['feature', 'score']
+            df_score.sort_values(by='score', ascending=False, inplace=True)
+            best_feature = df_score['feature'].values[0]
+            if best_feature.count('_train'):
+                best_feature = best_feature.replace('_train', '')
+            move_feature([best_feature], from_dir, to_dir)
+            os.system(f'rm {check_score_path}')
+            os.system(f'touch {check_score_path}')
+            
+    
     #========================================================================
     # PostProcess
     #========================================================================
