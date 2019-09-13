@@ -30,7 +30,7 @@ COLUMNS_IGNORE = [COLUMN_ID, COLUMN_DT, COLUMN_TARGET, COLUMN_GROUP, 'is_train',
 
 paths_train = glob('../feature/raw_use/*_train.gz')
 paths_train += sorted(glob('../feature/org_use/*_train.gz'))
-paths_train += sorted(glob('../feature/kernel/*_train.gz'))
+# paths_train += sorted(glob('../feature/kernel/*_train.gz'))
 
 df_train = parallel_load_data(paths_train)
 
@@ -93,7 +93,7 @@ for i in range(10):
     
     start_time = "{0:%Y%m%d_%H%M%S}".format(datetime.datetime.now())[:13]
     params = {
-        'n_jobs': 31,
+        'n_jobs': 21,
         'seed': 1208,
         'metric': 'auc',
         'objective': 'binary',
@@ -101,7 +101,7 @@ for i in range(10):
         'max_depth': -1,
         'subsample': 0.9,
         'subsample_freq': 1,
-        'colsample_bytree' : 0.20,
+        'colsample_bytree' : 1.0,
         'lambda_l1' : 0.1,
         'lambda_l2' : 1.0,
         'learning_rate' : 0.1,

@@ -71,9 +71,10 @@ def get_tree_importance(estimator, use_cols, importance_type="gain"):
 
 
 valid_paths_train = sorted(glob('../feature/valid/*_train.gz'), reverse=is_reverse)
-for i in range(20):
+for i in range(10):
 
-    valid_path = valid_paths_train[(i+i_add):(i+i_add)+1]
+    #  valid_path = valid_paths_train[(i+i_add):(i+i_add)+1]
+    valid_path = valid_paths_train[(i+i_add)*10:(i+i_add+1)*10]
     try:
         df_feat_train = parallel_load_data(valid_path)
         cols_feat = df_feat_train.columns
@@ -167,10 +168,12 @@ for i in range(20):
             score = roc_auc_score(y_valid, oof_pred)
             cvs = str(score).replace('.', '-')
             logger.info(f"  * {feature_name} Fold{fold}:{score}")
-            with open(save_file_path, 'a') as f:
-                line = f'{exp_no},{fold},{feature_name},{score}\n'
-                f.write(line)
-            
+            for path in valid_path:
+                feature_name = get_filename(path)
+                with open(save_file_path, 'a') as f:
+                    line = f'{exp_no},{fold},{feature_name},{score}\n'
+                    f.write(line)
+
 #             feim = get_tree_importance(estimator=estimator, use_cols=x_train.columns)
 #             feim.sort_values(by='importance', ascending=False, inplace=True)
 #             feim['is_valid'] = feim['feature'].map(valid_map)
