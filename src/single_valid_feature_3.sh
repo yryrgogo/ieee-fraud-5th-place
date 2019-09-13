@@ -1,6 +1,6 @@
 #!/bin/bash
 
-for i in `seq 1 50`
+for i in `seq 1 600`
 do
-    python eval_single_valid_feature_lgb.py 4 3
+    python eval_lgb_downsampling_single_valid_feature.py 3
 done
