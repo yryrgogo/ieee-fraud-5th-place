@@ -119,9 +119,9 @@ fold_map = {
     2: '2018-3',
 }
 base_fold_score = {
-    0: 0.93510,
-    1: 0.94780,
-    2: 0.93500,
+    0: 0.93610,
+    1: 0.94800,
+    2: 0.93700,
 }
 
 print("Num Feature", len(valid_paths_train))
