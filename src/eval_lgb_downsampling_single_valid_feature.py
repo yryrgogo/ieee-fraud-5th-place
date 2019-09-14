@@ -79,7 +79,8 @@ COLUMNS_IGNORE = [COLUMN_ID, COLUMN_DT, COLUMN_TARGET, COLUMN_GROUP, 'is_train',
 
 paths_train = glob('../feature/raw_use/*_train.gz')
 paths_train += sorted(glob('../feature/org_use/*_train.gz'))
-paths_train += sorted(glob('../feature/valid_use/*_train.gz'))
+paths_train += sorted(glob('../feature/sub_use/*_train.gz'))
+#  paths_train += sorted(glob('../feature/valid_use/*_train.gz'))
 
 df_train = parallel_load_data(paths_train)
 
@@ -111,7 +112,6 @@ df_train = pd.concat([df_pos, df_neg], axis=0)
 is_base = [True, False][1]
 is_result = [True, False][1]
 is_write  = [True, False][0]
-to_dir = '../feature/check_trush/'
 
 fold_map = {
     0: '2018-5',
@@ -119,9 +119,9 @@ fold_map = {
     2: '2018-3',
 }
 base_fold_score = {
-    0: 0.93110,
-    1: 0.94580,
-    2: 0.93400,
+    0: 0.93510,
+    1: 0.94780,
+    2: 0.93500,
 }
 
 print("Num Feature", len(valid_paths_train))
@@ -265,7 +265,7 @@ for i in range(8):
         df_score = pd.read_csv(check_score_path, header=None)
         if len(df_score)>2:
             from_dir = 'valid'
-            to_dir = 'valid_use'
+            to_dir = 'sub_use'
             df_score.columns = ['feature', 'score']
             df_score.sort_values(by='score', ascending=False, inplace=True)
             best_feature = df_score['feature'].values[0]
@@ -279,6 +279,7 @@ for i in range(8):
     #========================================================================
     # PostProcess
     #========================================================================
+    to_dir = '../feature/check_trush/'
     with timer("  * PostProcess"):
         for path in valid_path:
             try:
