@@ -29,36 +29,42 @@ def get_tree_importance(estimator, use_cols, importance_type="gain"):
     feim['importance'] = feim['importance'].astype('float32')
     return feim
 
+seed = 1208
 is_shuffle=False
 valid_no = sys.argv[1]
 if valid_no=='1':
     is_reverse=False
     i_add = 0
-    np.random.seed(1)
+    np.random.seed(seed)
     is_shuffle=True
 elif valid_no=='2':
     is_reverse=True
     i_add = 0
-    np.random.seed(2)
+    seed = seed*2
+    np.random.seed(seed)
     is_shuffle=True
 elif valid_no=='3':
     is_reverse=False
     i_add = 12
-    np.random.seed(3)
+    seed = seed*3
+    np.random.seed(seed)
     is_shuffle=True
 elif valid_no=='4':
     is_reverse=True
     i_add = 12
-    np.random.seed(4)
+    seed = seed*4
+    np.random.seed(seed)
     is_shuffle=True
 elif valid_no=='5':
     is_reverse=False
     i_add = 24
-    np.random.seed(5)
+    seed = seed*5
+    np.random.seed(seed)
     is_shuffle=True
 elif valid_no=='6':
     is_reverse=True
-    np.random.seed(6)
+    seed = seed*6
+    np.random.seed(seed)
     is_shuffle=True
     i_add = 24
 
@@ -93,7 +99,6 @@ df_train[COLUMN_GROUP] = group
 # Negative Down Sampling
 #========================================================================
 frac = 0.2
-seed = 1208
 np.random.seed(seed)
 df_pos = df_train[df_train.isFraud==1]
 df_neg = df_train[df_train.isFraud!=1]
