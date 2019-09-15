@@ -455,7 +455,7 @@ def get_label_feature(df, cols_cat):
 
 
 def get_factorize_feature(df, cols_cat, is_sort=True):
-    for col in cats:
+    for col in cols_cat:
         df[col], _ = pd.factorize(df[col], sort=is_sort)
     return df
 

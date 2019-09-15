@@ -250,17 +250,18 @@ for i in range(8):
 
             logger.info(f"  * {feature_name} Fold{fold} {fold_map[fold]}:{score}")
                     
+            if not is_result and is_write:
+                with open(save_file_path, 'a') as f:
+                    line = f'{start_time},{fold_map[fold]},{feature_name},{score}\n'
+                    f.write(line)
+
             # 三行もたないfeatureは各foldをクリアできなかった
             if score < base_fold_score[fold]:
                 break
             else:
                 cnt +=1
                 cv += score/3
-            
-            if not is_result and is_write:
-                with open(save_file_path, 'a') as f:
-                    line = f'{start_time},{fold_map[fold]},{feature_name},{score}\n'
-                    f.write(line)
+
             
     if cnt==3:
         with open(check_score_path, 'a') as f:
