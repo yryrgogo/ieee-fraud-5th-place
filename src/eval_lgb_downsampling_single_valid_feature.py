@@ -85,7 +85,7 @@ COLUMNS_IGNORE = [COLUMN_ID, COLUMN_DT, COLUMN_TARGET, COLUMN_GROUP, 'is_train',
 
 paths_train = glob('../feature/raw_use/*_train.gz')
 paths_train += sorted(glob('../feature/org_use/*_train.gz'))
-paths_train += sorted(glob('../feature/sub_use/*_train.gz'))
+#  paths_train += sorted(glob('../feature/sub_use/*_train.gz'))
 #  paths_train += sorted(glob('../feature/valid_use/*_train.gz'))
 
 df_train = parallel_load_data(paths_train)

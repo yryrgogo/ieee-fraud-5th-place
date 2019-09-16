@@ -1,0 +1,172 @@
+{
+ "cells": [
+  {
+   "cell_type": "code",
+   "execution_count": 1,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "%load_ext autoreload\n",
+    "%autoreload 2\n",
+    "from glob import glob\n",
+    "import gc\n",
+    "import os\n",
+    "import sys\n",
+    "import datetime\n",
+    "import numpy as np\n",
+    "import pandas as pd\n",
+    "from tqdm import tqdm\n",
+    "from func.utils import get_numeric_features, get_categorical_features, read_pkl_gzip, to_pkl_gzip, parallel_load_data, get_filename\n",
+    "from func.time_utils import date_add_days\n",
+    "from func.ml_utils import save_feature, get_cnt_feature, get_dummie_feature, get_label_feature\n",
+    "from func.parallel_utils import get_parallel_arg_list\n",
+    "from joblib import delayed, Parallel"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 2,
+   "metadata": {},
+   "outputs": [],
+   "source": [
+    "COLUMN_ID = 'TransactionID'\n",
+    "COLUMN_DT = 'TransactionDT'\n",
+    "COLUMN_TARGET = 'isFraud'\n",
+    "COLUMNS_IGNORE = [COLUMN_ID, COLUMN_DT, COLUMN_TARGET, 'ProductCD']\n",
+    "\n",
+    "train_paths = glob('../feature/eda_base/*_train.gz')\n",
+    "test_paths  = glob('../feature/eda_base/*_test.gz')\n",
+    "train_paths += glob('../feature/org_use/*_train.gz')\n",
+    "test_paths  += glob('../feature/org_use/*_test.gz')\n",
+    "train_paths += glob('../feature/org_trush/*_train.gz')\n",
+    "test_paths  += glob('../feature/org_trush/*_test.gz')\n",
+    "\n",
+    "train_paths = [path for path in train_paths \n",
+    "               if (path.count(COLUMN_DT) \n",
+    "               or path.count(COLUMN_ID)\n",
+    "               or path.count(COLUMN_TARGET)\n",
+    "               or path.count('ProductCD_t')\n",
+    "               or path.count('526__')\n",
+    "               )\n",
+    "               and not path.count('fill')\n",
+    "               and not path.count('bin')\n",
+    "               and not path.count('129')\n",
+    "              ]\n",
+    "test_paths = [path for path in test_paths \n",
+    "               if (path.count(COLUMN_DT) \n",
+    "               or path.count(COLUMN_ID)\n",
+    "               or path.count(COLUMN_TARGET)\n",
+    "               or path.count('ProductCD_t')\n",
+    "               or path.count('526__')\n",
+    "               )\n",
+    "               and not path.count('fill')\n",
+    "               and not path.count('bin')\n",
+    "               and not path.count('129')\n",
+    "              ]\n",
+    "\n",
+    "df_train = parallel_load_data(train_paths)\n",
+    "df_test = parallel_load_data(test_paths)\n",
+    "data = pd.concat([df_train, df_test], axis=0, ignore_index=True)\n",
+    "train_length = df_train.shape[0]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 11,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stderr",
+     "output_type": "stream",
+     "text": [
+      "\n",
+      "0it [00:00, ?it/s]\u001b[A\n",
+      "\u001b[A"
+     ]
+    }
+   ],
+   "source": [
+    "#========================================================================\n",
+    "# ProductCDあたりのfeature\n",
+    "#========================================================================\n",
+    "cols_526 = [col for col in data.columns if col.startswith('526')]\n",
+    "cols_pcd = data['ProductCD'].unique()\n",
+    "\n",
+    "for col in tqdm(cols_526[120:]):\n",
+    "    for pcd in cols_pcd:\n",
+    "        feature_name = f'{col}__ProductCD-{pcd}'\n",
+    "        data[feature_name] = -1\n",
+    "        data.loc[data['ProductCD'].isin([pcd]), feature_name] = data.loc[data['ProductCD'].isin([pcd]), col]"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": 12,
+   "metadata": {},
+   "outputs": [
+    {
+     "name": "stdout",
+     "output_type": "stream",
+     "text": [
+      "(590540,) | V167_216_max__ProductCD-W\n",
+      "(590540,) | V167_216_max__ProductCD-H\n"
+     ]
+    },
+    {
+     "ename": "KeyboardInterrupt",
+     "evalue": "",
+     "output_type": "error",
+     "traceback": [
+      "\u001b[0;31m---------------------------------------------------------------------------\u001b[0m",
+      "\u001b[0;31mKeyboardInterrupt\u001b[0m                         Traceback (most recent call last)",
+      "\u001b[0;32m<ipython-input-12-838d8ae4168a>\u001b[0m in \u001b[0;36m<module>\u001b[0;34m\u001b[0m\n\u001b[1;32m      9\u001b[0m \u001b[0mdir_save\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0;34m'valid_use'\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m     10\u001b[0m \u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m---> 11\u001b[0;31m \u001b[0msave_feature\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mtrain\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0mcols_save\u001b[0m\u001b[0;34m]\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mprefix\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mdir_save\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mis_train\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0;32mTrue\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mauto_type\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0;32mTrue\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mlist_ignore\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0mCOLUMNS_IGNORE\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m     12\u001b[0m \u001b[0msave_feature\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0mtest\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0mcols_save\u001b[0m\u001b[0;34m]\u001b[0m\u001b[0;34m,\u001b[0m  \u001b[0mprefix\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mdir_save\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mis_train\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0;32mFalse\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mauto_type\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0;32mTrue\u001b[0m\u001b[0;34m,\u001b[0m \u001b[0mlist_ignore\u001b[0m\u001b[0;34m=\u001b[0m\u001b[0mCOLUMNS_IGNORE\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;32m~/github/ieee-fraud/src/func/ml_utils.py\u001b[0m in \u001b[0;36msave_feature\u001b[0;34m(df_feat, prefix, dir_save, is_train, auto_type, list_ignore, is_check, is_viz)\u001b[0m\n\u001b[1;32m    514\u001b[0m             \u001b[0;32mcontinue\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    515\u001b[0m         \u001b[0;32mif\u001b[0m \u001b[0mauto_type\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0;32m--> 516\u001b[0;31m             \u001b[0mfeature\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mdf_feat\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0mcol\u001b[0m\u001b[0;34m]\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mvalues\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mastype\u001b[0m\u001b[0;34m(\u001b[0m\u001b[0;34m'float32'\u001b[0m\u001b[0;34m)\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[0m\u001b[1;32m    517\u001b[0m         \u001b[0;32melse\u001b[0m\u001b[0;34m:\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n\u001b[1;32m    518\u001b[0m             \u001b[0mfeature\u001b[0m \u001b[0;34m=\u001b[0m \u001b[0mdf_feat\u001b[0m\u001b[0;34m[\u001b[0m\u001b[0mcol\u001b[0m\u001b[0;34m]\u001b[0m\u001b[0;34m.\u001b[0m\u001b[0mvalues\u001b[0m\u001b[0;34m\u001b[0m\u001b[0;34m\u001b[0m\u001b[0m\n",
+      "\u001b[0;31mKeyboardInterrupt\u001b[0m: "
+     ]
+    }
+   ],
+   "source": [
+    "cols_save = [col.replace('526__', '') for col in data.columns if col.count('ProductCD-')]\n",
+    "new_cols = [col.replace('526__', '') for col in data.columns]\n",
+    "data.columns = new_cols\n",
+    "\n",
+    "train = data.iloc[:train_length][cols_save]\n",
+    "test  = data.iloc[train_length:][cols_save]\n",
+    "\n",
+    "prefix = '527'\n",
+    "dir_save = 'valid_use'\n",
+    "\n",
+    "save_feature(train[cols_save], prefix, dir_save, is_train=True, auto_type=True, list_ignore=COLUMNS_IGNORE)\n",
+    "save_feature(test[cols_save],  prefix, dir_save, is_train=False, auto_type=True, list_ignore=COLUMNS_IGNORE)"
+   ]
+  },
+  {
+   "cell_type": "code",
+   "execution_count": null,
+   "metadata": {},
+   "outputs": [],
+   "source": []
+  }
+ ],
+ "metadata": {
+  "kernelspec": {
+   "display_name": "Python 3",
+   "language": "python",
+   "name": "python3"
+  },
+  "language_info": {
+   "codemirror_mode": {
+    "name": "ipython",
+    "version": 3
+   },
+   "file_extension": ".py",
+   "mimetype": "text/x-python",
+   "name": "python",
+   "nbconvert_exporter": "python",
+   "pygments_lexer": "ipython3",
+   "version": "3.7.3"
+  }
+ },
+ "nbformat": 4,
+ "nbformat_minor": 2
+}
