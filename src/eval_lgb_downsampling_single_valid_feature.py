@@ -131,7 +131,7 @@ base_fold_score = {
 
 print("Num Feature", len(valid_paths_train))
 
-for i in range(8):
+for i in range(5):
 
     start_time = "{0:%Y%m%d_%H%M%S}".format(datetime.datetime.now())[:14]
     #  valid_path = valid_paths_train[(i+i_add):(i+i_add)+1]
