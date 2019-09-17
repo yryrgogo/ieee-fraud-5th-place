@@ -284,17 +284,13 @@ for i in range(8):
         
             oof_pred = estimator.predict(x_valid)
             score = roc_auc_score(y_valid, oof_pred)
+            score_list.append(score)
             cvs = str(score).replace('.', '-')
             
             feim = get_tree_importance(estimator, use_cols)
             feim.rename(columns={'importance': f'imp_fold{fold+1}'}, inplace=True)
             feim.set_index('feature', inplace=True)
             feim_list.append(feim)
-            df_feim = pd.concat(feim_list, axis=1)
-            df_feim['imp_avg'] = df_feim.mean(axis=1)
-            df_feim.sort_values(by='imp_avg', ascending=False, inplace=True)
-            
-            to_pkl_gzip(obj=df_feim, path=f"../output/feature_importances/{start_time}__bear_valid__CV{cvs}__feature{len(use_cols)}")
             
             test_pred = estimator.predict(x_test)
             pb, pv, al = bear_validation(test_pred)
@@ -312,6 +308,13 @@ for i in range(8):
 #             else:
 #                 cnt +=1
 #                 cv += score/3
+
+    df_feim = pd.concat(feim_list, axis=1)
+    df_feim['imp_avg'] = df_feim.mean(axis=1)
+    df_feim.sort_values(by='imp_avg', ascending=False, inplace=True)
+    avg_score = str(np.mean(score_list))[:9].replace('.', '-')
+    
+    to_pkl_gzip(obj=df_feim, path=f"../output/feature_importances/{start_time}__bear_valid__CV{avg_score}__feature{len(use_cols)}")
 
             
     if cnt==3:
