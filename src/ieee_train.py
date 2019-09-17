@@ -5,6 +5,7 @@ from func.utils import get_categorical_features, to_pkl_gzip, timer
 from kaggle_utils import move_feature
 from glob import glob
 from sklearn.model_selection import StratifiedKFold, GroupKFold
+from sklearn.metrics import roc_auc_score
 import datetime
 import numpy as np
 import os
@@ -23,6 +24,16 @@ COLUMN_DT = 'TransactionID'
 COLUMN_TARGET = 'isFraud'
 COLUMNS_IGNORE = [COLUMN_ID, COLUMN_DT, COLUMN_TARGET, 'is_train', 'pred_user', 'DT-M']
 early_stopping_rounds = 50
+
+#========================================================================
+# bear
+#========================================================================
+bear = pd.read_csv('../input/20190913_ieee__bear_probing.csv').iloc[:, [0, 3, 4, 6]]
+bear = bear[bear[COLUMN_TARGET]==-1]
+bear = bear.iloc[:, [0,1,3]]
+bear.columns = [COLUMN_ID, 'data_type', COLUMN_TARGET]
+submission = pd.read_csv('../input/sample_submission.csv')
+submission.columns = [COLUMN_ID, 'pred']
 
 
 def join_same_user(df, pred_user_path):
@@ -51,7 +62,7 @@ def get_params(model_type):
         'objective': 'binary',
         'fold': ['stratified', 'group'][1],
 
-        'num_leaves': 2**6-1,
+        'num_leaves': 2**7-1,
         'max_depth': -1,
         'subsample': 1.0,
         'subsample_freq': 1,
@@ -61,6 +72,19 @@ def get_params(model_type):
         'learning_rate' : 0.1,
     }
     return params
+
+
+def bear_validation(test_pred):
+    submission['pred'] = test_pred
+    bear_score = submission.merge(bear, how='inner', on=COLUMN_ID)
+    public  = bear_score[bear_score['data_type']=='test_public']
+    private = bear_score[bear_score['data_type']=='test_private']
+    
+    public_score = roc_auc_score(public[COLUMN_TARGET].values, public['pred'].values)
+    private_score = roc_auc_score(private[COLUMN_TARGET].values, private['pred'].values)
+    all_score = roc_auc_score(bear_score[COLUMN_TARGET].values, bear_score['pred'].values)
+
+    return public_score, private_score, all_score
 
 
 def ieee_cv(logger, df_train, Y, df_test, COLUMN_GROUP, use_cols, params={}, is_adv=False, is_valid=False):
@@ -75,6 +99,8 @@ def ieee_cv(logger, df_train, Y, df_test, COLUMN_GROUP, use_cols, params={}, is_
     if validation=="stratified":
         kfold = list(StratifiedKFold(n_splits=n_splits, random_state=seed).split(df_train, Y))
     elif validation=='group':
+#         tmp_kfold = list(GroupKFold(n_splits=n_splits).split(df_train, Y, df_train[COLUMN_GROUP]))
+#         kfold = [tmp_kfold[3], tmp_kfold[5], tmp_kfold[1], tmp_kfold[4], tmp_kfold[2], tmp_kfold[0]]
         kfold = list(GroupKFold(n_splits=n_splits).split(df_train, Y, df_train[COLUMN_GROUP]))
         
     score_list = []
@@ -108,7 +134,10 @@ def ieee_cv(logger, df_train, Y, df_test, COLUMN_GROUP, use_cols, params={}, is_
                 params=params,
                 early_stopping_rounds = early_stopping_rounds,
             )
-        logger.info(f"  * Fold{n_fold} {dtm}: {score}")
+            
+        pb, pv, al = bear_validation(test_pred)
+            
+        logger.info(f"  * Fold{n_fold} {dtm}: {score} | Bear's...PB:{pb} PV:{pv} All:{al}")
         print("="*20)
 
         score_list.append(score)
@@ -121,9 +150,16 @@ def ieee_cv(logger, df_train, Y, df_test, COLUMN_GROUP, use_cols, params={}, is_
         feim_list.append(feim)
         
     cv_score = np.mean(score_list)
+    cvs = str(cv_score).replace('.', '-')
     df_feim = pd.concat(feim_list, axis=1)
     df_feim['imp_avg'] = df_feim.mean(axis=1)
     df_feim.sort_values(by='imp_avg', ascending=False, inplace=True)
+    
+    ## Save
+    # Each Fold Test Pred
+    to_pkl_gzip(obj=test_preds, path=f'../output/fold_test_pred/{start_time}_Each_Fold__CV{cvs}__feature{len(use_cols)}')
+    # Feature Importance
+    to_pkl_gzip(obj=df_feim, path=f"../output/feature_importances/{start_time}__CV{cvs}__feature{len(use_cols)}")
     
     
     #========================================================================
@@ -132,10 +168,6 @@ def ieee_cv(logger, df_train, Y, df_test, COLUMN_GROUP, use_cols, params={}, is_
     if is_adv:
         pred_result = pd.Series(y_pred, index=df_train[COLUMN_ID].values, name='adv_pred_' + start_time)
         return cv_score, df_feim, pred_result
-    
-    # Feature Importance
-    cvs = str(cv_score).replace('.', '-')
-    to_pkl_gzip(obj=df_feim, path=f"../output/feature_importances/{start_time}__CV{cvs}__feature{len(use_cols)}")
     
     with timer("  * Make Prediction Result File."):
         if is_valid:
