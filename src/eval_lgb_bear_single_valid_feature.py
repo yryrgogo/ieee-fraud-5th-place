@@ -22,6 +22,12 @@ try:
 except NameError:
     logger = logger_func()
     
+    
+COLUMN_ID = 'TransactionID'
+COLUMN_DT = 'TransactionDT'
+COLUMN_TARGET = 'isFraud'
+COLUMN_GROUP = 'DT-M'
+COLUMNS_IGNORE = [COLUMN_ID, COLUMN_DT, COLUMN_TARGET, COLUMN_GROUP, 'is_train', 'date']
 
 #========================================================================
 # bear
@@ -103,11 +109,6 @@ valid_paths_test = [path.replace('train', 'test') for path in valid_paths_train]
 save_file_path = '../output/valid_single_feature.csv'
 check_score_path = 'check_score.csv'
 
-COLUMN_ID = 'TransactionID'
-COLUMN_DT = 'TransactionDT'
-COLUMN_TARGET = 'isFraud'
-COLUMN_GROUP = 'DT-M'
-COLUMNS_IGNORE = [COLUMN_ID, COLUMN_DT, COLUMN_TARGET, COLUMN_GROUP, 'is_train', 'date']
 
 paths_train = glob('../feature/raw_use/*_train.gz')
 paths_train += sorted(glob('../feature/org_use/*_train.gz'))
