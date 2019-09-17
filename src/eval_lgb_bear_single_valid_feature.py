@@ -21,6 +21,18 @@ try:
     logger
 except NameError:
     logger = logger_func()
+    
+
+#========================================================================
+# bear
+#========================================================================
+bear = pd.read_csv('../input/20190913_ieee__bear_probing.csv').iloc[:, [0, 3, 4, 6]]
+bear = bear[bear[COLUMN_TARGET]==-1]
+bear = bear.iloc[:, [0,1,3]]
+bear.columns = [COLUMN_ID, 'data_type', COLUMN_TARGET]
+submission = pd.read_csv('../input/sample_submission.csv')
+submission.columns = [COLUMN_ID, 'pred']
+    
 
 def get_tree_importance(estimator, use_cols, importance_type="gain"):
     feim = estimator.feature_importance(importance_type=importance_type)
