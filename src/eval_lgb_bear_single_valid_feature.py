@@ -200,6 +200,7 @@ for i in range(8):
     
     use_cols = [col for col in tmp_train.columns if col not in COLUMNS_IGNORE]
     feim_list = []
+    score_list = []
     x_test = tmp_test[use_cols]
     
     cnt = 0    
