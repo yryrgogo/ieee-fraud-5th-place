@@ -29,6 +29,19 @@ def get_tree_importance(estimator, use_cols, importance_type="gain"):
     feim['importance'] = feim['importance'].astype('float32')
     return feim
 
+def bear_validation(test_pred):
+    submission['pred'] = test_pred
+    bear_score = submission.merge(bear, how='inner', on=COLUMN_ID)
+    public  = bear_score[bear_score['data_type']=='test_public']
+    private = bear_score[bear_score['data_type']=='test_private']
+    
+    public_score = roc_auc_score(public[COLUMN_TARGET].values, public['pred'].values)
+    private_score = roc_auc_score(private[COLUMN_TARGET].values, private['pred'].values)
+    all_score = roc_auc_score(bear_score[COLUMN_TARGET].values, bear_score['pred'].values)
+
+    return public_score, private_score, all_score
+
+
 seed = 1208
 is_shuffle=False
 valid_no = sys.argv[1]
