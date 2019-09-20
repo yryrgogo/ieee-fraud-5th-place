@@ -44,7 +44,6 @@ class Xray_Cal:
                 }
 
 
-
     def single_xray_calculation(self, col, val, N):
 
         dataset = self.df_xray.copy()
