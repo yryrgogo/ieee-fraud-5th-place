@@ -20,9 +20,10 @@ warnings.simplefilter('ignore')
 # Config
 #========================================================================
 COLUMN_ID = 'TransactionID'
-COLUMN_DT = 'TransactionID'
+COLUMN_DT = 'TransactionDT'
 COLUMN_TARGET = 'isFraud'
-COLUMNS_IGNORE = [COLUMN_ID, COLUMN_DT, COLUMN_TARGET, 'is_train', 'pred_user', 'DT-M']
+COLUMNS_IGNORE = [COLUMN_ID, COLUMN_DT, COLUMN_TARGET, 'is_train', 'pred_user', 'DT-M',
+                 'datetime', 'date', 'year', 'month']
 early_stopping_rounds = 50
 
 #========================================================================
@@ -135,10 +136,11 @@ def ieee_cv(logger, df_train, Y, df_test, COLUMN_GROUP, use_cols, params={}, is_
                 early_stopping_rounds = early_stopping_rounds,
             )
             
-        pb, pv, al = bear_validation(test_pred)
+        if not is_adv:
+            pb, pv, al = bear_validation(test_pred)
             
-        logger.info(f"  * Fold{n_fold} {dtm}: {score} | Bear's...PB:{pb} PV:{pv} All:{al}")
-        print("="*20)
+            logger.info(f"  * Fold{n_fold} {dtm}: {score} | Bear's...PB:{pb} PV:{pv} All:{al}")
+            print("="*20)
 
         score_list.append(score)
         best_iteration += best_iter/n_splits
@@ -167,7 +169,7 @@ def ieee_cv(logger, df_train, Y, df_test, COLUMN_GROUP, use_cols, params={}, is_
     #========================================================================
     if is_adv:
         pred_result = pd.Series(y_pred, index=df_train[COLUMN_ID].values, name='adv_pred_' + start_time)
-        return cv_score, df_feim, pred_result
+        return 0, cv_score, df_feim, pred_result, [], []
     
     with timer("  * Make Prediction Result File."):
         if is_valid:
@@ -188,7 +190,7 @@ def ieee_cv(logger, df_train, Y, df_test, COLUMN_GROUP, use_cols, params={}, is_
             pred_result.columns = [COLUMN_ID, COLUMN_TARGET]
             pred_result.iloc[len(df_train):].to_csv(f"../submit/tmp/{start_time}__CV{cvs}__feature{len(use_cols)}.csv", index=False)
     
-    return best_iteration, cv_score, df_feim, pred_result, score_list
+    return best_iteration, cv_score, df_feim, pred_result, score_list, test_preds
 
 
 def save_log_cv_result(best_iteration, cv_score, model_type, n_features, n_rows, params, score_list, adv_cv_score=-1):
@@ -256,16 +258,13 @@ def eval_adversarial_validation(logger, df_train, df_test, COLUMN_GROUP, use_col
     
     Y_ADV = all_data[COLUMN_ADV]
     all_data.drop(COLUMN_ADV, axis=1, inplace=True)
-    kfold = list(GroupKFold(n_splits=5).split(all_data, Y_ADV, all_data[COLUMN_GROUP]))
     
-    if len(params)==0:
-        params = get_params(model_type)
-    
-    adv_cv_score, adv_df_feim, adv_pred_result = ieee_cv(
+    _, adv_cv_score, adv_df_feim, adv_pred_result, _, _ = ieee_cv(
         logger,
         all_data,
         Y_ADV,
         [],
+        COLUMN_GROUP,
         use_cols,
         params,
         is_adv=True
@@ -307,37 +306,37 @@ def eval_train(logger, df_train, Y, df_test, COLUMN_GROUP, model_type='lgb', par
 #     df_test = join_same_user(df_test, same_user_path)
     
         
-    if len(params)==0:
-        params = get_params(model_type)
+    if not is_adv:
     
-    best_iteration, cv_score, df_feim, pred_result, score_list = ieee_cv(
-        logger,
-        df_train,
-        Y,
-        df_test,
-        COLUMN_GROUP,
-        use_cols,
-        params,
-        is_valid=is_valid
-    )
-    
-    if is_valid:
-        pass
-    else:
-        test_pred = pred_result.iloc[:, 1].values[len(df_train):]
-        valid_submit_prediction(test_pred)
-    
-    print(f"* CV: {cv_score} | BestIter: {best_iteration}")
-    
-    if is_viz:
-        if model_type=="lgb":
-            print("* Training Feature Importance")
-            display_importance(df_feim)
+        best_iteration, cv_score, df_feim, pred_result, score_list, test_preds = ieee_cv(
+            logger,
+            df_train,
+            Y,
+            df_test,
+            COLUMN_GROUP,
+            use_cols,
+            params,
+            is_valid=is_valid
+        )
+
+        if is_valid:
+            pass
+        else:
+            test_pred = pred_result.iloc[:, 1].values[len(df_train):]
+            valid_submit_prediction(test_pred)
+
+        logger.info(f"* CV: {cv_score} | BestIter: {best_iteration}")
+
+        if is_viz:
+            if model_type=="lgb":
+                print("* Training Feature Importance")
+                display_importance(df_feim)
     
     #========================================================================
     # Adversarial Validation
     #========================================================================
-    if is_adv:
+    elif is_adv:
+        logger.info(" * Adversaril Validation")
         adv_cv_score, adv_df_feim, adv_pred_result = eval_adversarial_validation(
             logger,
             df_train,
@@ -347,7 +346,7 @@ def eval_train(logger, df_train, Y, df_test, COLUMN_GROUP, model_type='lgb', par
             model_type,
             params,
         )
-        print(f"* AdversarialCV: {adv_cv_score}")
+        logger.info(f"* AdversarialCV: {adv_cv_score}")
     else:
         adv_cv_score = -1
         
@@ -359,7 +358,7 @@ def eval_train(logger, df_train, Y, df_test, COLUMN_GROUP, model_type='lgb', par
     #========================================================================
     # 学習結果やパラメータのログをBigQueryに保存する
     #========================================================================
-    if is_valid:
+    if is_valid or is_adv:
         pass
     else:
         n_features = len(use_cols)
@@ -376,6 +375,6 @@ def eval_train(logger, df_train, Y, df_test, COLUMN_GROUP, model_type='lgb', par
         )
     
     if is_adv:
-        return [df_feim, adv_df_feim]
+        return adv_df_feim, []
     else:
-        return [df_feim]
+        return df_feim, test_preds
