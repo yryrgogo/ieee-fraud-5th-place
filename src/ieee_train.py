@@ -23,7 +23,7 @@ COLUMN_ID = 'TransactionID'
 COLUMN_DT = 'TransactionDT'
 COLUMN_TARGET = 'isFraud'
 COLUMNS_IGNORE = [COLUMN_ID, COLUMN_DT, COLUMN_TARGET, 'is_train', 'pred_user', 'DT-M',
-                 'datetime', 'date', 'year', 'month']
+                 'datetime', 'date', 'year', 'month', 'predicted_user_id']
 early_stopping_rounds = 50
 
 #========================================================================
@@ -326,6 +326,7 @@ def eval_train(logger, df_train, Y, df_test, COLUMN_GROUP, model_type='lgb', par
             valid_submit_prediction(test_pred)
 
         logger.info(f"* CV: {cv_score} | BestIter: {best_iteration}")
+        adv_cv_score = -1
 
         if is_viz:
             if model_type=="lgb":
@@ -347,8 +348,6 @@ def eval_train(logger, df_train, Y, df_test, COLUMN_GROUP, model_type='lgb', par
             params,
         )
         logger.info(f"* AdversarialCV: {adv_cv_score}")
-    else:
-        adv_cv_score = -1
         
     if is_viz and is_adv:
         if model_type=="lgb":

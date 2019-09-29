@@ -144,14 +144,7 @@ def Regressor(model_type, x_train, x_valid, y_train, y_valid, x_test,
 
     #========================================================================
     # Scoring
-    if get_score=='auc':
-        score = roc_auc_score(y_valid, oof_pred)
-    else:
-        score = np.sqrt(mean_squared_error(y_valid, oof_pred))
-        r2    = r2_score(y_valid, oof_pred)
-        print(f"""
-        # R2 Score: {r2}
-        """)
+    score = np.sqrt(mean_squared_error(y_valid, oof_pred))
     # Model   : {model_type}
     # feature : {x_train.shape, x_valid.shape}
     #========================================================================
