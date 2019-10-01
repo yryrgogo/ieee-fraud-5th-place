@@ -1098,5 +1098,9 @@
 {"learn":[0.0639493405],"iteration":1094,"passed_time":3313.872652,"remaining_time":5765.230505},
 {"learn":[0.06393743647],"iteration":1095,"passed_time":3316.668782,"remaining_time":5761.804161},
 {"learn":[0.06392871229],"iteration":1096,"passed_time":3319.496036,"remaining_time":5758.432959},
-{"learn":[0.06392009918],"iteration":1097,"passed_time":3322.176001,"remaining_time":5754.807609}
+{"learn":[0.06392009918],"iteration":1097,"passed_time":3322.176001,"remaining_time":5754.807609},
+{"learn":[0.06390887527],"iteration":1098,"passed_time":3325.008689,"remaining_time":5751.448151},
+{"learn":[0.0638977868],"iteration":1099,"passed_time":3327.812568,"remaining_time":5748.039891},
+{"learn":[0.06388542428],"iteration":1100,"passed_time":3330.59129,"remaining_time":5744.589337},
+{"learn":[0.06387163862],"iteration":1101,"passed_time":3333.389783,"remaining_time":5741.174055}
 ]}
