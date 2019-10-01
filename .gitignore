@@ -16,6 +16,7 @@ mtg/
 /src/catboost_info/
 *.json
 *.tmp
+*.tfevents
 
 *.pdf
 *.yaml
