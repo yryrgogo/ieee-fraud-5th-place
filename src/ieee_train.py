@@ -101,21 +101,13 @@ def ieee_cv(logger, df_train, Y, df_test, COLUMN_GROUP, use_cols, params={},  co
     del params['n_splits']
     del params['fold']
 #     del params['model_type'], params['n_splits'], params['fold']
-
-#     dtm_idx = df_train[df_train[COLUMN_GROUP]!='2017-12'].index
-#     dec_idx = df_train[df_train[COLUMN_GROUP]=='2017-12'].index
-    
-#     print(df_train.loc[dtm_idx][COLUMN_GROUP].value_counts())
-#     print(df_train.loc[dec_idx][COLUMN_GROUP].value_counts())
     
     if validation=="stratified":
         kfold = list(StratifiedKFold(n_splits=n_splits, random_state=seed).split(df_train, Y))
-
     elif validation=='group':
 #         tmp_kfold = list(GroupKFold(n_splits=n_splits).split(df_train, Y, df_train[COLUMN_GROUP]))
 #         kfold = [tmp_kfold[3], tmp_kfold[5], tmp_kfold[1], tmp_kfold[4], tmp_kfold[2], tmp_kfold[0]]
         kfold = list(GroupKFold(n_splits=n_splits).split(df_train, Y, df_train[COLUMN_GROUP]))
-#         kfold = list(GroupKFold(n_splits=5).split(df_train.loc[dtm_idx], Y.loc[dtm_idx], df_train.loc[dtm_idx][COLUMN_GROUP]))
         
     score_list = []
     feim_list = []
@@ -137,25 +129,6 @@ def ieee_cv(logger, df_train, Y, df_test, COLUMN_GROUP, use_cols, params={},  co
         y_train = Y.iloc[trn_idx]
         x_valid = df_train.iloc[val_idx]
         y_valid = Y.iloc[val_idx]
-
-#         x_train = pd.concat([
-#             df_train.loc[dtm_idx].iloc[trn_idx],
-#             df_train.loc[dec_idx]
-#         ], axis=0)
-#         y_train = pd.concat([
-#             Y.loc[dtm_idx].iloc[trn_idx],
-#             Y.loc[dec_idx],
-#         ], axis=0)
-#         x_valid = df_train.loc[dtm_idx].iloc[val_idx]
-#         y_valid = Y.loc[dtm_idx].iloc[val_idx]
-        
-#         print(x_train.shape, y_train.shape, x_valid.shape)
-#         print(len(set(x_train.index) | set(x_valid.index)))
-#         print(x_train[COLUMN_GROUP].value_counts())
-#         print(x_valid[COLUMN_GROUP].value_counts())
-#         x_train = x_train[use_cols]
-#         x_valid = x_valid[use_cols]
-#         sys.exit()
         
 #         if n_fold != 0:
 #             probing = pd.read_csv('../input/20190929_probing.csv')
@@ -189,11 +162,11 @@ def ieee_cv(logger, df_train, Y, df_test, COLUMN_GROUP, use_cols, params={},  co
                 cols_categorical = cols_categorical
             )
             
-        if not is_adv:
-            pb, pv, al = bear_validation(test_pred)
-            
-            logger.info(f"  * Fold{n_fold} {dtm}: {score} | Bear's...PB:{pb} PV:{pv} All:{al}")
-            print("="*20)
+#         if not is_adv:
+        pb, pv, al = bear_validation(test_pred)
+        
+        logger.info(f"  * Fold{n_fold} {dtm}: {score} | Bear's...PB:{pb} PV:{pv} All:{al}")
+        print("="*20)
 
         score_list.append(score)
         best_iteration += best_iter/n_splits
