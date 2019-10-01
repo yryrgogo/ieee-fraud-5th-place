@@ -111,15 +111,35 @@ def ieee_cv(logger, df_train, Y, df_test, COLUMN_GROUP, use_cols, params={}, is_
     test_preds = []
     
     if len(df_test):
-        x_test = df_test[use_cols]
+        x_test = df_test
     else:
         x_test = []
     
     for n_fold, (trn_idx, val_idx) in enumerate(kfold):
-        x_train = df_train.iloc[trn_idx][use_cols]
+        
+#         if n_fold!=3:
+#             continue
+        
+        x_train = df_train.iloc[trn_idx]
         y_train = Y.iloc[trn_idx]
-        x_valid = df_train.iloc[val_idx][use_cols]
+        x_valid = df_train.iloc[val_idx]
         y_valid = Y.iloc[val_idx]
+        
+#         if n_fold != 0:
+#             probing = pd.read_csv('../input/20190929_probing.csv')
+#             probing = probing[probing['Probing_isFraud']==1]
+#             probing_ids = probing[COLUMN_ID].values
+#             y_probing = probing['Probing_isFraud']
+#             y_probing.name = COLUMN_TARGET
+            
+#             probing_train = x_test[x_test[COLUMN_ID].isin(probing_ids)]
+#             print(x_train.shape, y_train.shape)
+#             x_train = pd.concat([x_train, probing_train], axis=0)
+#             y_train = pd.concat([y_train, y_probing], axis=0)
+#             print(x_train.shape, y_train.shape)
+            
+        x_train = x_train[use_cols]
+        x_valid = x_valid[use_cols]
         
         val_gr = df_train.iloc[val_idx][COLUMN_GROUP].value_counts()
         dtm = val_gr.index.tolist()[0]
@@ -131,7 +151,7 @@ def ieee_cv(logger, df_train, Y, df_test, COLUMN_GROUP, use_cols, params={}, is_
                 y_train=y_train,
                 x_valid=x_valid,
                 y_valid=y_valid,
-                x_test=x_test,
+                x_test=x_test[use_cols],
                 params=params,
                 early_stopping_rounds = early_stopping_rounds,
             )
