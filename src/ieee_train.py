@@ -88,13 +88,18 @@ def bear_validation(test_pred):
     return public_score, private_score, all_score
 
 
-def ieee_cv(logger, df_train, Y, df_test, COLUMN_GROUP, use_cols, params={}, is_adv=False, is_valid=False):
+def ieee_cv(logger, df_train, Y, df_test, COLUMN_GROUP, use_cols, params={},  cols_categorical=[], is_adv=False, is_valid=False):
     start_time = "{0:%Y%m%d_%H%M%S}".format(datetime.datetime.now())[:13]
     seed       = params['seed']
     model_type = params['model_type']
     n_splits = params['n_splits']
     validation = params['fold']
     early_stopping_rounds = params['early_stopping_rounds']
+    
+    del params['seed']
+    del params['model_type']
+    del params['n_splits']
+    del params['fold']
 #     del params['model_type'], params['n_splits'], params['fold']
     
     if validation=="stratified":
@@ -154,6 +159,7 @@ def ieee_cv(logger, df_train, Y, df_test, COLUMN_GROUP, use_cols, params={}, is_
                 x_test=x_test[use_cols],
                 params=params,
                 early_stopping_rounds = early_stopping_rounds,
+                cols_categorical = cols_categorical
             )
             
         if not is_adv:
@@ -167,21 +173,27 @@ def ieee_cv(logger, df_train, Y, df_test, COLUMN_GROUP, use_cols, params={}, is_
         y_pred[val_idx] = oof_pred
         test_preds.append(test_pred)
         
-        feim.rename(columns={'importance': f'imp_fold{n_fold+1}'}, inplace=True)
-        feim.set_index('feature', inplace=True)
-        feim_list.append(feim)
+        if len(feim):
+            feim.rename(columns={'importance': f'imp_fold{n_fold+1}'}, inplace=True)
+            feim.set_index('feature', inplace=True)
+            feim_list.append(feim)
         
     cv_score = np.mean(score_list)
     cvs = str(cv_score).replace('.', '-')
-    df_feim = pd.concat(feim_list, axis=1)
-    df_feim['imp_avg'] = df_feim.mean(axis=1)
-    df_feim.sort_values(by='imp_avg', ascending=False, inplace=True)
+    
+    if len(feim):
+        df_feim = pd.concat(feim_list, axis=1)
+        df_feim['imp_avg'] = df_feim.mean(axis=1)
+        df_feim.sort_values(by='imp_avg', ascending=False, inplace=True)
+    else:
+        df_feim = []
     
     ## Save
     # Each Fold Test Pred
     to_pkl_gzip(obj=test_preds, path=f'../output/fold_test_pred/{start_time}_Each_Fold__CV{cvs}__feature{len(use_cols)}')
     # Feature Importance
-    to_pkl_gzip(obj=df_feim, path=f"../output/feature_importances/{start_time}__CV{cvs}__feature{len(use_cols)}")
+    if len(feim):
+        to_pkl_gzip(obj=df_feim, path=f"../output/feature_importances/{start_time}__CV{cvs}__feature{len(use_cols)}")
     
     
     #========================================================================
@@ -319,7 +331,7 @@ def eval_check_feature(df_train, df_test, is_corr=False):
                 
     return list_unique_drop
 
-def eval_train(logger, df_train, Y, df_test, COLUMN_GROUP, model_type='lgb', params={}, is_adv=False, is_viz=False, is_valid=False):
+def eval_train(logger, df_train, Y, df_test, COLUMN_GROUP, model_type='lgb', params={}, cols_categorical=[], is_adv=False, is_viz=False, is_valid=False):
     
     use_cols = [col for col in df_train.columns if col not in COLUMNS_IGNORE]
 #     df_train = join_same_user(df_train, same_user_path)
@@ -336,7 +348,8 @@ def eval_train(logger, df_train, Y, df_test, COLUMN_GROUP, model_type='lgb', par
             COLUMN_GROUP,
             use_cols,
             params,
-            is_valid=is_valid
+            is_valid=is_valid,
+            cols_categorical=cols_categorical,
         )
 
         if is_valid:

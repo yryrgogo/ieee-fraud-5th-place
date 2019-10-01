@@ -24,6 +24,7 @@ from functools import partial
 
 # Model
 import lightgbm as lgb
+from catboost import Pool, CatBoostClassifier
 from sklearn.metrics import roc_auc_score, log_loss, r2_score, mean_squared_error
 from sklearn.model_selection import train_test_split, StratifiedKFold, KFold, GroupKFold
 from sklearn.ensemble import RandomForestClassifier, RandomForestRegressor
@@ -182,10 +183,15 @@ def Classifier(
     if model_type=='lgr':
         params['n_jobs'] = -1
         estimator = LogisticRegression(**params)
-    if model_type=='rmf':
+    elif model_type=='rmf':
         params['n_jobs'] = -1
         params['n_estimators'] = 10000
         estimator = RandomForestClassifier(**params)
+    elif model_type=='cat':
+#         params['n_jobs'] = -1
+#         params['n_estimators'] = 10000
+        estimator = CatBoostClassifier(**params)
+    
     elif model_type=='lgb':
         if len(params.keys())==0:
             metric = 'auc'
@@ -203,8 +209,15 @@ def Classifier(
 
     #========================================================================
     # Fitting
-    if model_type!='lgb':
+    if model_type!='lgb' and model_type!='cat':
         estimator.fit(x_train, y_train)
+    elif model_type=='cat':
+        estimator.fit(
+            x_train,
+            y_train,
+            cat_features=cols_categorical,
+        )
+        best_iter = 1
     else:
         if len(weight_list):
             lgb_train = lgb.Dataset(data=x_train, label=y_train, weight=weight_list[0])
@@ -227,7 +240,7 @@ def Classifier(
 
     #========================================================================
     # Prediction
-    if model_type=='lgb':
+    if model_type=='lgb' or model_type=='cat':
         oof_pred = estimator.predict(x_valid)
         if len(x_test):
             test_pred = estimator.predict(x_test)
@@ -240,12 +253,12 @@ def Classifier(
         else:
             test_pred = []
 
-    if metric=='auc':
-        score = roc_auc_score(y_valid, oof_pred)
-    elif metric=='logloss':
-        score = log_loss(y_valid, oof_pred)
+#     if metric=='auc':
+    score = roc_auc_score(y_valid, oof_pred)
+#     elif metric=='logloss':
+#         score = log_loss(y_valid, oof_pred)
 
-    if get_feim:
+    if get_feim and model_type=='lgb':
         feim = get_tree_importance(estimator=estimator, use_cols=x_train.columns)
     else:
         feim = []
