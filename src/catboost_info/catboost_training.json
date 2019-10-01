@@ -635,5 +635,16 @@
 {"learn":[0.07219860441],"iteration":631,"passed_time":1939.532507,"remaining_time":7267.10914},
 {"learn":[0.07216874046],"iteration":632,"passed_time":1942.419108,"remaining_time":7263.358656},
 {"learn":[0.072141346],"iteration":633,"passed_time":1946.711042,"remaining_time":7264.855401},
-{"learn":[0.07212677874],"iteration":634,"passed_time":1950.044739,"remaining_time":7262.76505}
+{"learn":[0.07212677874],"iteration":634,"passed_time":1950.044739,"remaining_time":7262.76505},
+{"learn":[0.0721119869],"iteration":635,"passed_time":1953.724301,"remaining_time":7261.956364},
+{"learn":[0.0720906734],"iteration":636,"passed_time":1956.636757,"remaining_time":7258.293024},
+{"learn":[0.07205108625],"iteration":637,"passed_time":1959.597869,"remaining_time":7254.812172},
+{"learn":[0.07202138165],"iteration":638,"passed_time":1962.314238,"remaining_time":7250.428663},
+{"learn":[0.07200260724],"iteration":639,"passed_time":1966.126854,"remaining_time":7250.092773},
+{"learn":[0.07198675544],"iteration":640,"passed_time":1968.990205,"remaining_time":7246.252564},
+{"learn":[0.07196823465],"iteration":641,"passed_time":1972.549133,"remaining_time":7244.970182},
+{"learn":[0.07194940668],"iteration":642,"passed_time":1975.402439,"remaining_time":7241.094165},
+{"learn":[0.0719175697],"iteration":643,"passed_time":1978.290311,"remaining_time":7237.347783},
+{"learn":[0.07189943943],"iteration":644,"passed_time":1981.539958,"remaining_time":7234.924963},
+{"learn":[0.07187228914],"iteration":645,"passed_time":1984.532136,"remaining_time":7231.561376}
 ]}
