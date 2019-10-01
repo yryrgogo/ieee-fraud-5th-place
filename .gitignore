@@ -14,6 +14,8 @@ feim/
 features/
 mtg/
 /src/catboost_info/
+*.json
+*.tmp
 
 *.pdf
 *.yaml
