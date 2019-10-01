@@ -1,11 +1,10 @@
 #!/bin/bash
 
-for i in `seq 1 5`
-do
-    for i in `seq 1 3`
-    do
-        python eval_valid_feature_lgb.py $i
-    done
-    mv ../feature/valid_use/* ../feature/valid/
-done
-
+python ieee__oof_pred_feature.py 528__ugr_addr1_C1_C14_ratio_agg_V75_94_mean_mean
+python ieee__oof_pred_feature.py 528__ugr_addr1_C1_C14_ratio_agg_D11_mean
+python ieee__oof_pred_feature.py 532__ugr_uid3_Regist_date_D14_agg_V242_263_mean_mean
+python ieee__oof_pred_feature.py 528__ugr_R_emaildomain_C1_C14_ratio_agg_V35_52_mean_mean
+python ieee__oof_pred_feature.py 532__ugr_uid3_ProductCD_Regist_date_agg_V242_263_mean_mean
+python ieee__oof_pred_feature.py 703__user_id_bear_agg_D2_max
+python ieee__oof_pred_feature.py 703__user_id_bear_agg_D3_mean
+python ieee__oof_pred_feature.py 526__V186~201_max

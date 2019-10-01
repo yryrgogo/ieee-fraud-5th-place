@@ -37,12 +37,12 @@ check_feature = sys.argv[1]
 # paths_test  = glob('../submit/sub_valid/*_test.gz')
 paths_train = glob('../submit/re_sub/*_train.gz')
 paths_test  = glob('../submit/re_sub/*_test.gz')
-paths_train += glob('../submit/add_feature/*_train.gz')
-paths_test  += glob('../submit/add_feature/*_test.gz')
-paths_train += glob('../feature/valid_use/531*_train.gz')
-paths_test  += glob('../feature/valid_use/531*_test.gz')
-paths_train += glob(f'../feature/valid_use/532*{check_feature}_*_train.gz')
-paths_test  += glob(f'../feature/valid_use/532*{check_feature}_*_test.gz')
+# paths_train += glob('../submit/add_feature/*_train.gz')
+# paths_test  += glob('../submit/add_feature/*_test.gz')
+# paths_train += glob('../feature/valid_use/531*_train.gz')
+# paths_test  += glob('../feature/valid_use/531*_test.gz')
+# paths_train += glob(f'../feature/valid_use/532*{check_feature}_*_train.gz')
+# paths_test  += glob(f'../feature/valid_use/532*{check_feature}_*_test.gz')
 
 # for path in paths_train:
 #     if path.count('C14_ratio'):
@@ -51,23 +51,7 @@ paths_test  += glob(f'../feature/valid_use/532*{check_feature}_*_test.gz')
 # for path in paths_test:
 #     if path.count('C14_ratio'):
 #         paths_test.remove(path)
-    
-# paths_train = glob('../feature/raw_use/*_train.gz')
-# paths_test = glob('../feature/raw_use/*_test.gz')
-# paths_train = [path for path in paths_train if filter_feature(path) ]
-# paths_test = [path for path in paths_test if filter_feature(path) ]
 
-# paths_train_feature = sorted(glob('../feature/org_use/*_train.gz'))
-# paths_test_feature  = sorted(glob('../feature/org_use/*_test.gz'))
-
-# paths_train_feature += sorted(glob('../feature/valid/*_train.gz'))
-# paths_test_feature  += sorted(glob('../feature/valid/*_test.gz'))
-
-# paths_train_feature += sorted(glob('../feature/kernel/*_train.gz'))
-# paths_test_feature  += sorted(glob('../feature/kernel/*_test.gz'))
-
-# paths_train_feature = sorted(glob('../feature/valid_use/*_train.gz'))
-# paths_test_feature  = sorted(glob('../feature/valid_use/*_test.gz'))
 paths_train_feature = []
 paths_test_feature  = []
 
@@ -188,6 +172,7 @@ if is_submit:
     params['learning_rate'] = 0.01
     params['learning_rate'] = 0.05
     params["early_stopping_rounds"] = 100
+    params["early_stopping_rounds"] = 50
 
 logger.info(f"* EXP: dataset {set_type} {tmp_train.shape} lr {params['learning_rate']} ")
 

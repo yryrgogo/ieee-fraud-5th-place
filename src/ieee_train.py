@@ -23,7 +23,7 @@ COLUMN_ID = 'TransactionID'
 COLUMN_DT = 'TransactionDT'
 COLUMN_TARGET = 'isFraud'
 COLUMNS_IGNORE = [COLUMN_ID, COLUMN_DT, COLUMN_TARGET, 'is_train', 'pred_user', 'DT-M',
-                 'datetime', 'date', 'year', 'month']
+                 'datetime', 'date', 'year', 'month', 'predicted_user_id']
 early_stopping_rounds = 50
 
 #========================================================================
@@ -88,13 +88,18 @@ def bear_validation(test_pred):
     return public_score, private_score, all_score
 
 
-def ieee_cv(logger, df_train, Y, df_test, COLUMN_GROUP, use_cols, params={}, is_adv=False, is_valid=False):
+def ieee_cv(logger, df_train, Y, df_test, COLUMN_GROUP, use_cols, params={},  cols_categorical=[], is_adv=False, is_valid=False):
     start_time = "{0:%Y%m%d_%H%M%S}".format(datetime.datetime.now())[:13]
     seed       = params['seed']
     model_type = params['model_type']
     n_splits = params['n_splits']
     validation = params['fold']
     early_stopping_rounds = params['early_stopping_rounds']
+    
+    del params['seed']
+    del params['model_type']
+    del params['n_splits']
+    del params['fold']
 #     del params['model_type'], params['n_splits'], params['fold']
 
 #     dtm_idx = df_train[df_train[COLUMN_GROUP]!='2017-12'].index
@@ -119,14 +124,18 @@ def ieee_cv(logger, df_train, Y, df_test, COLUMN_GROUP, use_cols, params={}, is_
     test_preds = []
     
     if len(df_test):
-        x_test = df_test[use_cols]
+        x_test = df_test
     else:
         x_test = []
     
     for n_fold, (trn_idx, val_idx) in enumerate(kfold):
-        x_train = df_train.iloc[trn_idx][use_cols]
+        
+#         if n_fold!=3:
+#             continue
+        
+        x_train = df_train.iloc[trn_idx]
         y_train = Y.iloc[trn_idx]
-        x_valid = df_train.iloc[val_idx][use_cols]
+        x_valid = df_train.iloc[val_idx]
         y_valid = Y.iloc[val_idx]
 
 #         x_train = pd.concat([
@@ -148,6 +157,22 @@ def ieee_cv(logger, df_train, Y, df_test, COLUMN_GROUP, use_cols, params={}, is_
 #         x_valid = x_valid[use_cols]
 #         sys.exit()
         
+#         if n_fold != 0:
+#             probing = pd.read_csv('../input/20190929_probing.csv')
+#             probing = probing[probing['Probing_isFraud']==1]
+#             probing_ids = probing[COLUMN_ID].values
+#             y_probing = probing['Probing_isFraud']
+#             y_probing.name = COLUMN_TARGET
+            
+#             probing_train = x_test[x_test[COLUMN_ID].isin(probing_ids)]
+#             print(x_train.shape, y_train.shape)
+#             x_train = pd.concat([x_train, probing_train], axis=0)
+#             y_train = pd.concat([y_train, y_probing], axis=0)
+#             print(x_train.shape, y_train.shape)
+            
+        x_train = x_train[use_cols]
+        x_valid = x_valid[use_cols]
+        
         val_gr = df_train.iloc[val_idx][COLUMN_GROUP].value_counts()
         dtm = val_gr.index.tolist()[0]
         print("="*20)
@@ -158,9 +183,10 @@ def ieee_cv(logger, df_train, Y, df_test, COLUMN_GROUP, use_cols, params={}, is_
                 y_train=y_train,
                 x_valid=x_valid,
                 y_valid=y_valid,
-                x_test=x_test,
+                x_test=x_test[use_cols],
                 params=params,
                 early_stopping_rounds = early_stopping_rounds,
+                cols_categorical = cols_categorical
             )
             
         if not is_adv:
@@ -174,21 +200,27 @@ def ieee_cv(logger, df_train, Y, df_test, COLUMN_GROUP, use_cols, params={}, is_
         y_pred[val_idx] = oof_pred
         test_preds.append(test_pred)
         
-        feim.rename(columns={'importance': f'imp_fold{n_fold+1}'}, inplace=True)
-        feim.set_index('feature', inplace=True)
-        feim_list.append(feim)
+        if len(feim):
+            feim.rename(columns={'importance': f'imp_fold{n_fold+1}'}, inplace=True)
+            feim.set_index('feature', inplace=True)
+            feim_list.append(feim)
         
     cv_score = np.mean(score_list)
     cvs = str(cv_score).replace('.', '-')
-    df_feim = pd.concat(feim_list, axis=1)
-    df_feim['imp_avg'] = df_feim.mean(axis=1)
-    df_feim.sort_values(by='imp_avg', ascending=False, inplace=True)
+    
+    if len(feim):
+        df_feim = pd.concat(feim_list, axis=1)
+        df_feim['imp_avg'] = df_feim.mean(axis=1)
+        df_feim.sort_values(by='imp_avg', ascending=False, inplace=True)
+    else:
+        df_feim = []
     
     ## Save
     # Each Fold Test Pred
     to_pkl_gzip(obj=test_preds, path=f'../output/fold_test_pred/{start_time}_Each_Fold__CV{cvs}__feature{len(use_cols)}')
     # Feature Importance
-    to_pkl_gzip(obj=df_feim, path=f"../output/feature_importances/{start_time}__CV{cvs}__feature{len(use_cols)}")
+    if len(feim):
+        to_pkl_gzip(obj=df_feim, path=f"../output/feature_importances/{start_time}__CV{cvs}__feature{len(use_cols)}")
     
     
     #========================================================================
@@ -326,7 +358,7 @@ def eval_check_feature(df_train, df_test, is_corr=False):
                 
     return list_unique_drop
 
-def eval_train(logger, df_train, Y, df_test, COLUMN_GROUP, model_type='lgb', params={}, is_adv=False, is_viz=False, is_valid=False):
+def eval_train(logger, df_train, Y, df_test, COLUMN_GROUP, model_type='lgb', params={}, cols_categorical=[], is_adv=False, is_viz=False, is_valid=False):
     
     use_cols = [col for col in df_train.columns if col not in COLUMNS_IGNORE]
 #     df_train = join_same_user(df_train, same_user_path)
@@ -343,7 +375,8 @@ def eval_train(logger, df_train, Y, df_test, COLUMN_GROUP, model_type='lgb', par
             COLUMN_GROUP,
             use_cols,
             params,
-            is_valid=is_valid
+            is_valid=is_valid,
+            cols_categorical=cols_categorical,
         )
 
         if is_valid:
@@ -353,6 +386,7 @@ def eval_train(logger, df_train, Y, df_test, COLUMN_GROUP, model_type='lgb', par
             valid_submit_prediction(test_pred)
 
         logger.info(f"* CV: {cv_score} | BestIter: {best_iteration}")
+        adv_cv_score = -1
 
         if is_viz:
             if model_type=="lgb":
@@ -374,8 +408,6 @@ def eval_train(logger, df_train, Y, df_test, COLUMN_GROUP, model_type='lgb', par
             params,
         )
         logger.info(f"* AdversarialCV: {adv_cv_score}")
-    else:
-        adv_cv_score = -1
         
     if is_viz and is_adv:
         if model_type=="lgb":
