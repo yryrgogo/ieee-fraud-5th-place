@@ -211,13 +211,25 @@ def Classifier(
     # Fitting
     if model_type!='lgb' and model_type!='cat':
         estimator.fit(x_train, y_train)
+        
     elif model_type=='cat':
-        estimator.fit(
+        
+        train_pool = Pool(
             x_train,
-            y_train,
+            label=y_train,
             cat_features=cols_categorical,
         )
+        valid_pool  = Pool(
+            x_valid,
+            label=y_valid,
+            cat_features=cols_categorical,
+        )
+        estimator.fit(
+            train_pool,
+            eval_set=[valid_pool],
+        )
         best_iter = 1
+        
     else:
         if len(weight_list):
             lgb_train = lgb.Dataset(data=x_train, label=y_train, weight=weight_list[0])
@@ -240,10 +252,16 @@ def Classifier(
 
     #========================================================================
     # Prediction
-    if model_type=='lgb' or model_type=='cat':
+    if model_type=='lgb':
         oof_pred = estimator.predict(x_valid)
         if len(x_test):
             test_pred = estimator.predict(x_test)
+        else:
+            test_pred = []
+    elif model_type=='cat':
+        oof_pred = estimator.predict_proba(x_valid)[:, 1]
+        if len(x_test):
+            test_pred = estimator.predict_proba(x_test)[:, 1]
         else:
             test_pred = []
     else:
