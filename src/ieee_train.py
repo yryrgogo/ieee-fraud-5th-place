@@ -390,7 +390,8 @@ def eval_train(logger, df_train, Y, df_test, COLUMN_GROUP, model_type='lgb', par
     #========================================================================
     # 学習結果やパラメータのログをBigQueryに保存する
     #========================================================================
-    if is_valid or is_adv:
+#     if is_valid or is_adv:
+    if True:
         pass
     else:
         n_features = len(use_cols)
